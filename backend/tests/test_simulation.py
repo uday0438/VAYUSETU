@@ -35,8 +35,8 @@ class TestHydrologicalSimulation(unittest.TestCase):
         
         # Ensure all pilot districts exist in output
         self.assertIn("Visakhapatnam", results)
-        self.assertIn("Nellore", results)
-        self.assertIn("Vijayawada", results)
+        self.assertIn("New Delhi", results)
+        self.assertIn("Mumbai", results)
         
         # Visakhapatnam base area is 540km2, capacity 250.
         # With +20% precipitation, rainfall goes from 120 to 144mm.

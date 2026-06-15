@@ -110,7 +110,7 @@ def main():
                 shape.text_frame.paragraphs[0].font.size = Pt(18)
                 shape.text_frame.paragraphs[0].font.color.rgb = RGBColor(0x0B, 0x25, 0x45)
             elif "Problem Statement" in text:
-                shape.text_frame.text = "Problem Statement : Challenge 5 - AI-Powered Climate Digital Twin of India (AP Pilot Scope)"
+                shape.text_frame.text = "Problem Statement : Challenge 5 - AI-Powered National Climate Digital Twin of India"
                 shape.text_frame.paragraphs[0].font.bold = True
                 shape.text_frame.paragraphs[0].font.size = Pt(16)
                 shape.text_frame.paragraphs[0].font.color.rgb = RGBColor(0x44, 0x44, 0x44)
@@ -159,17 +159,17 @@ def main():
             shape.height = Inches(4.7)
             
             paragraphs = [
-                "**VAYUSETU: OPPORTUNITY, PILOT SCOPING & USP**",
-                "### Scoped Pilot Region: Coastal Andhra Pradesh",
-                "- **High Climate Variability**: Vulnerable to cyclones, flood catchment discharges, and severe heatwaves. Excellent PoC region for rainfall/temperature forecasting and early warnings.",
-                "- **The Gap**: Traditional models are slow. Visual observation portals (e.g. standard dashboards) lack real-time digital twin scenarios and explainable prediction mechanics.",
+                "**VAYUSETU: NATIONAL SCOPE, OPPORTUNITY & USP**",
+                "### Coverage: 12 National Meteorological Zones across India",
+                "- **Pan-India Climate Variability**: Covers cyclone-prone coasts (Mumbai, Chennai, Visakhapatnam), flood-prone plains (Patna, Kolkata, Guwahati), arid zones (Ahmedabad), and high-altitude basins (Srinagar).",
+                "- **The Gap**: Traditional models are slow. Standard dashboards lack real-time digital twin scenarios, What-If projections, and explainable prediction mechanics at national scale.",
                 "### How VAYUSETU Solves the Problem",
-                "- **Indigenous Data Fusion**: Ingests INSAT-3D LST, SST, and IMD Pune 0.25° gridded datasets into a PostGIS coordinate grid.",
-                "- **AI-Accelerated Forecasts**: Replaces heavy physical model equations with fast ConvLSTM models to deliver spatial projections in seconds.",
+                "- **Indigenous Data Fusion**: Ingests INSAT-3D LST, SST, and IMD Pune 0.25° gridded datasets across the entire Indian subcontinent into a PostGIS coordinate grid.",
+                "- **AI-Accelerated Forecasts**: Replaces heavy NWP equations with fast ConvLSTM models to deliver national spatial projections in seconds.",
                 "### Unique Selling Proposition (USP)",
-                "- **USP #1**: Scoped pilot digital twin using indigenous INSAT and IMD inputs.",
-                "- **USP #2**: What-If Scenario Builder (e.g. +20% rain anomaly) simulating subsequent flood catchment and heat shifts.",
-                "- **USP #3**: Explainable AI (XAI) outputting clear contributing factors for public trust."
+                "- **USP #1**: National-scale digital twin covering 12 major cities using indigenous INSAT and IMD inputs.",
+                "- **USP #2**: What-If Scenario Builder (e.g. +20% rain anomaly) simulating subsequent flood, drought, and heatwave shifts for any region.",
+                "- **USP #3**: Explainable AI (XAI) outputting clear contributing factors for public trust and government decision-making."
             ]
             clear_and_write_paragraphs(shape.text_frame, paragraphs, font_size=10)
 
@@ -183,15 +183,15 @@ def main():
             shape.height = Inches(4.7)
             
             paragraphs = [
-                "**CORE FUNCTIONALITIES OF VAYUSETU**",
+                "**CORE FUNCTIONALITIES OF VAYUSETU (NATIONAL SCALE)**",
                 "### 1. Flood Early Warning Module (FEWS)",
-                "- **Precipitation Anomalies**: Input forecast precipitation (e.g. 220mm) to output dynamic flood probabilities, target drainage basins, and NDRF advisories.",
+                "- **Precipitation Anomalies**: Input forecast precipitation (e.g. 220mm) for any of the 12 national nodes to output dynamic flood probabilities, target drainage basins, and NDRF advisories.",
                 "### 2. Explainable AI (XAI) Contributor Panel",
                 "- **Feature Attribution**: Explains rainfall forecasts using SHAP values (e.g. SST anomaly contribution: 34%, Humidity: 28%, Wind Vectors: 21%), avoiding black-box distrust.",
-                "### 3. Climate Risk Score Indexing",
-                "- **Aggregated Scores**: Calculates dynamic indices for Flood, Heatwave, and Drought, yielding an overall regional alert level.",
+                "### 3. Multi-Zone Climate Risk Indexing",
+                "- **Aggregated Scores**: Calculates dynamic indices for Flood, Heatwave, and Drought across all 12 zones, yielding overall national and regional alert levels.",
                 "### 4. Interactive What-If Scenario Builder",
-                "- **Variables**: Adjust Precipitation, Temp Rise, and Urban expansion sliders. Instantly outputs projected risk shifts (e.g. Urbanization +15% -> Flood Risk +34%).",
+                "- **Variables**: Adjust Precipitation, Temp Rise, Soil Moisture (AMC), and Urban expansion sliders. Instantly outputs projected risk shifts per zone.",
                 "### 5. Timeline Slider & Model Quality",
                 "- **Temporal Playback**: Past State -> Current Ingestion -> 24h -> 48h Forecast -> Scenario projection.",
                 "- **Production Monitoring**: Real-time dashboards monitoring prediction accuracy (92%) and data drift (1.8%)."
@@ -300,12 +300,13 @@ def main():
                 "- **Encryption**: Local database encryption-at-rest (AES-256) and secure TLS 1.3 transport.",
                 "### 2. Operational Feasibility & Costs",
                 "- **Open-Source Stack**: Open databases and libraries avoid licensing fees.",
-                "- **Cloud Host Estimate (Monthly)**: ~₹8,000 to ₹10,000 for pilot phase compute, PostGIS, and Redis cache.",
-                "- **Large-Scale Deploy (NIC/ISRO Cloud)**: ~₹2 - 5 Lakhs annually for multi-node GPU clustering.",
-                "### 3. National Scalability Pathway",
-                "- **GTM Path**: AP Coastal Region Pilot → State Level Rollout → Basin-Level Expansion → National Climate Twin (ISRO-Bhuvan integration).",
+                "- **Cloud Host Estimate (Monthly)**: ~₹15,000 to ₹25,000 for national-scale compute, PostGIS, and Redis cache.",
+                "- **Full-Scale Deploy (NIC/ISRO Cloud)**: ~₹5 - 12 Lakhs annually for multi-node GPU clustering serving 12+ meteorological zones.",
+                "### 3. National Scalability Architecture",
+                "- **Current Scope**: 12 National Meteorological Nodes (Delhi, Mumbai, Kolkata, Chennai, Bengaluru, Hyderabad, Guwahati, Srinagar, Ahmedabad, Bhopal, Visakhapatnam, Patna).",
+                "- **Future**: Integration with ISRO-Bhuvan, NRSC Open Data Archive, and IITM-ESM climate models for basin-level hyper-local twins.",
                 "### 4. IP Potential",
-                "- **Hydrometeorological Runoff Engine**: Spatio-Temporal Climate Fusion and Data Assimilation Engine."
+                "- **Hydrometeorological Runoff Engine**: National Spatio-Temporal Climate Fusion and Data Assimilation Engine."
             ]
             clear_and_write_paragraphs(shape.text_frame, paragraphs, font_size=10)
 

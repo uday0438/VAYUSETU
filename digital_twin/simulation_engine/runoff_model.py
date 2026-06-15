@@ -58,27 +58,27 @@ def run_district_flood_simulation(
     """
     if districts is None:
         districts = [
-            "Srikakulam", "Vizianagaram", "Visakhapatnam", "Kakinada",
-            "Rajamahendravaram", "Eluru", "Machilipatnam", "Vijayawada",
-            "Guntur", "Ongole", "Nellore", "Tirupati"
+            "New Delhi", "Mumbai", "Kolkata", "Chennai",
+            "Bengaluru", "Hyderabad", "Guwahati", "Srinagar",
+            "Ahmedabad", "Bhopal", "Visakhapatnam", "Patna"
         ]
         
     results = {}
     
     # Base parameters for districts: [area (km2), channel_capacity (m3s), base_runoff_coeff]
     district_specs = {
-        "Srikakulam": {"area": 5830, "capacity": 1200, "base_c": 0.42},
-        "Vizianagaram": {"area": 4350, "capacity": 800, "base_c": 0.40},
+        "New Delhi": {"area": 1480, "capacity": 600, "base_c": 0.50},
+        "Mumbai": {"area": 600, "capacity": 400, "base_c": 0.70},
+        "Kolkata": {"area": 200, "capacity": 150, "base_c": 0.65},
+        "Chennai": {"area": 420, "capacity": 300, "base_c": 0.60},
+        "Bengaluru": {"area": 700, "capacity": 250, "base_c": 0.45},
+        "Hyderabad": {"area": 650, "capacity": 220, "base_c": 0.42},
+        "Guwahati": {"area": 330, "capacity": 500, "base_c": 0.58},
+        "Srinagar": {"area": 290, "capacity": 400, "base_c": 0.48},
+        "Ahmedabad": {"area": 460, "capacity": 300, "base_c": 0.40},
+        "Bhopal": {"area": 280, "capacity": 200, "base_c": 0.44},
         "Visakhapatnam": {"area": 540, "capacity": 250, "base_c": 0.65},
-        "Kakinada": {"area": 3010, "capacity": 1500, "base_c": 0.60},
-        "Rajamahendravaram": {"area": 4500, "capacity": 2000, "base_c": 0.58},
-        "Eluru": {"area": 3410, "capacity": 700, "base_c": 0.50},
-        "Machilipatnam": {"area": 2200, "capacity": 1200, "base_c": 0.52},
-        "Vijayawada": {"area": 670, "capacity": 350, "base_c": 0.55},
-        "Guntur": {"area": 2440, "capacity": 600, "base_c": 0.54},
-        "Ongole": {"area": 6500, "capacity": 800, "base_c": 0.38},
-        "Nellore": {"area": 820, "capacity": 400, "base_c": 0.50},
-        "Tirupati": {"area": 1500, "capacity": 300, "base_c": 0.32}
+        "Patna": {"area": 250, "capacity": 350, "base_c": 0.55}
     }
     
     for district in districts:
