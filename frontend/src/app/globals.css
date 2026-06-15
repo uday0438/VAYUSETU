@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: #020617; /* Fallback Slate-950 background */
+}
+
+/* Twinkling Starfield Background for ISRO Space Theme */
+.space-bg {
+  position: relative;
+  background: radial-gradient(ellipse at top, #061026 0%, #020512 65%, #010103 100%);
+  overflow-x: hidden;
+}
+
+.space-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(1.5px 1.5px at 20px 30px, #ffffff, rgba(0,0,0,0)),
+    radial-gradient(1.5px 1.5px at 40px 70px, #ffffff, rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 50px 160px, #e2e8f0, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 80px 120px, #ffffff, rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 110px 220px, #93c5fd, rgba(0,0,0,0)),
+    radial-gradient(1.5px 1.5px at 150px 50px, #ffffff, rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 200px 150px, #e2e8f0, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 250px 280px, #ffffff, rgba(0,0,0,0));
+  background-size: 280px 280px;
+  opacity: 0.4;
+  pointer-events: none;
+  animation: starTwinkle 12s infinite linear;
+  z-index: 0;
+}
+
+.space-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: 
+    /* Medium stars */
+    radial-gradient(2px 2px at 30px 100px, #93c5fd, rgba(0,0,0,0)),
+    radial-gradient(1.5px 1.5px at 100px 40px, #ffffff, rgba(0,0,0,0)),
+    radial-gradient(2.5px 2.5px at 180px 200px, #f1f5f9, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 220px 80px, #ffffff, rgba(0,0,0,0)),
+    /* BRIGHT STARS: White cores with soft colored halos */
+    radial-gradient(3.5px 3.5px at 60px 120px, #ffffff 10%, #6366f1 40%, rgba(0,0,0,0)),
+    radial-gradient(4px 4px at 190px 50px, #ffffff 15%, #38bdf8 50%, rgba(0,0,0,0)),
+    radial-gradient(3px 3px at 120px 300px, #ffffff 10%, #a78bfa 40%, rgba(0,0,0,0)),
+    radial-gradient(4.5px 4.5px at 250px 180px, #ffffff 15%, #60a5fa 50%, rgba(0,0,0,0));
+  background-size: 320px 320px;
+  opacity: 0.55;
+  pointer-events: none;
+  animation: starTwinkle 18s infinite linear reverse;
+  z-index: 0;
+}
+
+@keyframes starTwinkle {
+  0% { opacity: 0.25; }
+  50% { opacity: 0.65; }
+  100% { opacity: 0.25; }
+}
+
+/* Custom telemetry progress bars */
+.progress-glow {
+  box-shadow: 0 0 8px var(--tw-shadow-color);
+}
+
+/* Custom Leaflet Popup overrides for dark space theme */
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: #020617ef !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #1e293b !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.7) !important;
+  border-radius: 8px !important;
+}
+
+.leaflet-popup-content {
+  margin: 6px 8px !important;
+  line-height: 1.4 !important;
+}
+
+.leaflet-popup-tip {
+  border: 1px solid #1e293b !important;
+}
