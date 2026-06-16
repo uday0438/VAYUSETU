@@ -190,6 +190,33 @@ VAYUSETU/
 
 ---
 
+## 🚢 Deployment Guide
+
+VAYUSETU is structured for a scalable microservice deployment, allowing the Next.js user interface and the FastAPI backend service to be deployed independently on optimal platforms.
+
+### 💻 Frontend Deployment (Vercel)
+
+The Next.js user interface is fully prepared for zero-configuration, one-click deployments on **Vercel** directly from the repository root:
+
+1. Import your VAYUSETU repository on Vercel.
+2. Vercel will auto-detect the configuration using the root-level [vercel.json](file:///d:/BUNNY/PROJECTS/ISRO/vercel.json) file:
+   * **Build Command**: `npm run build --prefix frontend`
+   * **Output Directory**: `frontend/.next`
+   * **Install Command**: `npm install --prefix frontend`
+3. Add the following environment variable in the Vercel dashboard:
+   * `NEXT_PUBLIC_API_URL`: The public URL of your deployed backend service (e.g. `https://vayusetu-backend.onrender.com`).
+
+### ⚙️ Backend Deployment (Railway / Render / AWS)
+
+Because the FastAPI backend and AI pipelines contain scientific computing libraries (like `torch` for ConvLSTM models, and potential C-compiled libraries such as `gdal`, `rasterio`, and `geopandas`), it should be deployed using a containerized environment:
+
+1. **Deploy via Docker**: Use the pre-configured [Dockerfile.backend](file:///d:/BUNNY/PROJECTS/ISRO/deployment/docker/Dockerfile.backend).
+2. **Environment Variables**:
+   * Set `JWT_SECRET` to a cryptographically secure key.
+   * (Optional) Set `DATABASE_URL` (PostgreSQL/PostGIS) and `REDIS_URL` if persistent data and caching layers are enabled.
+
+---
+
 ## 👥 The Development Team: ClimateX Labs
 - **Kalle Uday Bhaskar** (Team Leader)
 - **Team Member 2** (Geospatial & DevOps Engineer)

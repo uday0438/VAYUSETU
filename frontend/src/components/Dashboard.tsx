@@ -310,6 +310,46 @@ export default function VayuSetuDashboard() {
   const [accuracy, setAccuracy] = useState("92.4");
   const [drift, setDrift] = useState("1.8");
 
+  // Splash Screen States
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashFading, setSplashFading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  useEffect(() => {
+    if (!showSplash) return;
+    
+    const duration = 3500; // 3.5 seconds loading time
+    const intervalTime = 50;
+    const increment = (100 / (duration / intervalTime));
+    
+    const timer = setInterval(() => {
+      setLoadingProgress((prev) => {
+        const next = prev + increment;
+        if (next >= 100) {
+          clearInterval(timer);
+          // Start fadeout
+          setSplashFading(true);
+          setTimeout(() => {
+            setShowSplash(false);
+          }, 1000); // 1s fade duration
+          return 100;
+        }
+        return next;
+      });
+    }, intervalTime);
+    
+    return () => clearInterval(timer);
+  }, [showSplash]);
+
+  // Derived loading text based on progress value
+  const getLoadingText = (progress: number) => {
+    if (progress < 20) return "Initializing Digital Twin Grid...";
+    if (progress < 45) return "Ingesting INSAT-3D Telemetry...";
+    if (progress < 70) return "Fusing IMD Rainfall Datasets...";
+    if (progress < 90) return "Calibrating AI Prediction Engines...";
+    return "Establishing Secured VAYUSETU Control Center...";
+  };
+
   // Map state variables & refs
   const [mapType, setMapType] = useState<"styled" | "satellite" | "terrain" | "globe">("styled");
   const [co2Shift, setCo2Shift] = useState(0);
@@ -366,7 +406,8 @@ export default function VayuSetuDashboard() {
     params?: Record<string, string | number>;
   }>>([]);
   const [isStreaming, setIsStreaming] = useState(true);
-  const logEndRef = useRef<HTMLDivElement | null>(null);
+  const logContainerRef = useRef<HTMLDivElement | null>(null);
+  const isInitialMount = useRef(true);
 
   // Helper to render log messages with parameters localized
   const renderLogMessage = (log: { messageKey: string; params?: Record<string, string | number> }) => {
@@ -781,8 +822,12 @@ export default function VayuSetuDashboard() {
 
   // Telemetry Monitor: Auto-scroll
   useEffect(() => {
-    if (logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
   }, [telemetryLogs]);
 
@@ -1137,6 +1182,133 @@ export default function VayuSetuDashboard() {
 
   return (
     <div className="min-h-screen space-bg text-slate-100 font-sans relative">
+      
+      {showSplash && (
+        <div 
+          className={`fixed inset-0 z-[9999] bg-[#020617] flex flex-col items-center justify-center overflow-hidden transition-opacity duration-1000 ${
+            splashFading ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+        >
+          {/* Custom Space CSS Animations */}
+          <style>{`
+            @keyframes space-orbit {
+              0% { transform: rotate(0deg) translate(180px) rotate(0deg) scale(0.6); z-index: 10; }
+              50% { transform: rotate(180deg) translate(180px) rotate(-180deg) scale(1.1); z-index: 10; }
+              50.01% { z-index: -10; }
+              100% { transform: rotate(360deg) translate(180px) rotate(-360deg) scale(0.6); z-index: -10; }
+            }
+            @keyframes float-earth {
+              0%, 100% { transform: translateY(0) scale(1); }
+              50% { transform: translateY(-8px) scale(1.02); }
+            }
+            @keyframes starry-twinkle {
+              0%, 100% { opacity: 0.15; }
+              50% { opacity: 1; }
+            }
+          `}</style>
+
+          {/* Random Starry Space Background */}
+          <div className="absolute inset-0 z-0">
+            {[...Array(80)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute bg-white rounded-full animate-pulse"
+                style={{
+                  top: `${Math.random() * 100}%`,
+                  left: `${Math.random() * 100}%`,
+                  width: `${Math.random() * 2 + 1}px`,
+                  height: `${Math.random() * 2 + 1}px`,
+                  animation: `starry-twinkle ${Math.random() * 3 + 2}s ease-in-out infinite`,
+                  animationDelay: `${Math.random() * 2}s`,
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Earth & Astronaut Cluster */}
+          <div className="relative w-80 h-80 flex items-center justify-center z-10 mb-8 select-none">
+            {/* The Earth */}
+            <div 
+              className="w-48 h-48 rounded-full relative bg-gradient-to-br from-blue-500 via-indigo-950 to-slate-950 border border-blue-400/30 flex items-center justify-center overflow-hidden"
+              style={{
+                animation: "float-earth 6s ease-in-out infinite",
+                boxShadow: "0 0 50px rgba(59, 130, 246, 0.2)"
+              }}
+            >
+              {/* Earth texture simulation */}
+              <div className="absolute inset-0 bg-cover opacity-20 pointer-events-none mix-blend-overlay bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-300 via-indigo-600 to-black"></div>
+              {/* Spinning atmosphere glow */}
+              <div className="absolute inset-0 rounded-full border border-blue-400/20 shadow-[inset_0_0_20px_rgba(59,130,246,0.5)]"></div>
+              
+              {/* Abstract continents */}
+              <svg className="absolute w-full h-full text-emerald-600/40 fill-current opacity-60" viewBox="0 0 100 100">
+                <path d="M20,30 Q30,25 40,35 T60,30 T80,45 T90,60 L95,80 L70,85 L50,70 L30,80 L15,60 Z" />
+                <path d="M45,15 Q55,10 65,15 T75,10 L80,25 L65,30 Z" />
+              </svg>
+            </div>
+
+            {/* Orbiting Spaceman (Astronaut) */}
+            <div 
+              className="absolute w-12 h-12 flex items-center justify-center pointer-events-none"
+              style={{
+                animation: "space-orbit 12s linear infinite"
+              }}
+            >
+              <svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">
+                {/* Backpack */}
+                <rect x="18" y="28" width="5" height="18" rx="2" fill="#E2E8F0" stroke="#64748B" strokeWidth="1.5"/>
+                <rect x="41" y="28" width="5" height="18" rx="2" fill="#E2E8F0" stroke="#64748B" strokeWidth="1.5"/>
+                
+                {/* Suit Body */}
+                <rect x="22" y="32" width="20" height="20" rx="5" fill="#F8FAFC" stroke="#94A3B8" strokeWidth="2"/>
+                
+                {/* Chest pack */}
+                <rect x="26" y="36" width="12" height="7" rx="1.5" fill="#CBD5E1"/>
+                <circle cx="29" cy="39.5" r="1" fill="#EF4444"/>
+                <circle cx="32" cy="39.5" r="1" fill="#10B981"/>
+                <circle cx="35" cy="39.5" r="1" fill="#3B82F6"/>
+                
+                {/* Arms */}
+                <path d="M22 35C18 35 15 37 14 39C13 40.5 14 42 16 41C18 40 22 38 22 38" stroke="#F8FAFC" strokeWidth="4.5" strokeLinecap="round"/>
+                <path d="M42 35C46 35 49 37 50 39C51 40.5 50 42 48 41C46 40 42 38 42 38" stroke="#F8FAFC" strokeWidth="4.5" strokeLinecap="round"/>
+                
+                {/* Legs */}
+                <path d="M26 50V56C26 57.5 28 57.5 28 56V50" stroke="#F8FAFC" strokeWidth="4.5" strokeLinecap="round"/>
+                <path d="M38 50V56C38 57.5 40 57.5 40 56V50" stroke="#F8FAFC" strokeWidth="4.5" strokeLinecap="round"/>
+
+                {/* Helmet */}
+                <circle cx="32" cy="21" r="11" fill="#F1F5F9" stroke="#94A3B8" strokeWidth="2"/>
+                <path d="M24 19C24 16.5 26 14.5 28.5 14.5H35.5C38 14.5 40 16.5 40 19V22.5C40 23.5 39 24.5 38 24.5H26C25 24.5 24 23.5 24 22.5V19Z" fill="#1E293B" stroke="#38BDF8" strokeWidth="2"/>
+                <path d="M26 17.5H32" stroke="#38BDF8" strokeWidth="1" strokeLinecap="round"/>
+              </svg>
+            </div>
+          </div>
+
+          {/* Logo & Project Title */}
+          <div className="text-center z-10 select-none px-4">
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-[0.2em] font-sans bg-gradient-to-r from-blue-400 via-cyan-400 to-indigo-500 bg-clip-text text-transparent uppercase">
+              VAYUSETU
+            </h1>
+            <p className="mt-2 text-xs md:text-sm tracking-wider text-slate-400 font-light max-w-sm mx-auto uppercase">
+              AI-Powered Digital Twin of India's Climate
+            </p>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="w-64 mt-12 z-10 select-none">
+            <div className="flex justify-between items-center text-[10px] font-mono text-slate-500 mb-1.5">
+              <span className="uppercase tracking-wider">{getLoadingText(loadingProgress)}</span>
+              <span>{Math.round(loadingProgress)}%</span>
+            </div>
+            <div className="w-full h-[3px] bg-slate-900 rounded-full overflow-hidden border border-slate-800/50">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-500 shadow-[0_0_8px_rgba(59,130,246,0.8)] transition-all duration-75"
+                style={{ width: `${loadingProgress}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Absolute Positioned Bright Constellation Stars */}
       <div className="absolute top-24 left-[8%] w-2 h-2 bg-white rounded-full shadow-[0_0_10px_#fff,0_0_20px_#38bdf8] animate-pulse pointer-events-none z-0"></div>
@@ -1927,7 +2099,7 @@ export default function VayuSetuDashboard() {
             </div>
           </div>
 
-          <div className="bg-slate-950/90 border border-slate-900 rounded-lg p-4 font-mono text-[11px] overflow-y-auto max-h-[180px] h-[180px] space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
+          <div ref={logContainerRef} className="bg-slate-950/90 border border-slate-900 rounded-lg p-4 font-mono text-[11px] overflow-y-auto max-h-[180px] h-[180px] space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
             {telemetryLogs.length === 0 ? (
               <div className="text-slate-600 italic text-center py-12">No telemetry packets received. Activate feed to stream.</div>
             ) : (
@@ -1956,7 +2128,6 @@ export default function VayuSetuDashboard() {
                 );
               })
             )}
-            <div ref={logEndRef} />
           </div>
         </section>
       </main>

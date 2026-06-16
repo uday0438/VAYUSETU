@@ -49,4 +49,4 @@ app.include_router(prediction.router, prefix="/api/v1/prediction", tags=["AI Pre
 app.include_router(simulation.router, prefix="/api/v1/simulation", tags=["Climate Simulation Layer"])
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True, reload_dirs=["backend"])
