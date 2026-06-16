@@ -40,8 +40,7 @@ class TestSecurityCryptography(unittest.TestCase):
         self.assertIn("exp", decoded)
         
         # Verify invalid token returns None
-        self.assertNil = decode_access_token("invalid.token.signature")
-        self.assertIsNone(self.assertNil)
+        self.assertIsNone(decode_access_token("invalid.token.signature"))
         
         # Verify expired token validation
         expired_token = create_access_token(data, expires_delta=-10) # Expired 10 seconds ago

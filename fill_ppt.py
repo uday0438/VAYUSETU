@@ -87,7 +87,7 @@ def clear_and_write_paragraphs(tf, paragraphs, font_size=12, custom_spacing=1.15
             p.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
 
 def main():
-    ppt_path = r"d:\BUNNY\PROJECTS\ISRO\Idea_Submission_Template.pptx"
+    ppt_path = r"d:\BUNNY\PROJECTS\ISRO\project ppt.pptx"
     output_path = r"d:\BUNNY\PROJECTS\ISRO\VAYUSETU_ISRO_BAH_2026_Idea_Submission.pptx"
     logo_path = r"d:\BUNNY\PROJECTS\ISRO\frontend\public\logo\logo.jpg"
     

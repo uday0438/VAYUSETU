@@ -4,8 +4,11 @@ import base64
 import json
 import time
 import os
+import logging
 from typing import Optional, Dict, Any
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 def hash_password(password: str) -> str:
     """
@@ -29,7 +32,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         
         test_hash = hashlib.pbkdf2_hmac('sha256', plain_password.encode('utf-8'), salt, iterations)
         return hmac.compare_digest(stored_hash, test_hash)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Password verification failed: {e}")
         return False
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[float] = None) -> str:
@@ -38,7 +42,7 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[float] = N
     Follows secure coding standards without requiring the 'python-jose' package.
     """
     payload = data.copy()
-    if expires_delta:
+    if expires_delta is not None:
         expire = time.time() + expires_delta
     else:
         expire = time.time() + (settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60)
@@ -94,5 +98,6 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
             return None
             
         return payload
-    except Exception:
+    except Exception as e:
+        logger.error(f"JWT decode failed: {e}")
         return None

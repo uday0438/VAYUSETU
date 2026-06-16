@@ -1,5 +1,5 @@
-import numpy as np
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+
 
 def calculate_rational_runoff(
     rainfall_intensity_mm_hr: float,
@@ -49,18 +49,22 @@ def run_district_flood_simulation(
     precipitation_anomaly_pct: float,
     urbanization_increase_pct: float,
     base_rainfall_mm: float = 120.0,
-    districts: List[str] = None,
-    soil_moisture_pct: float = 50.0
+    districts: Optional[List[str]] = None,
+    soil_moisture_pct: float = 50.0,
+    temp_rise_c: float = 0.0
 ) -> Dict[str, Any]:
     """
     Simulates district-level flood indices under dynamic 'What-If' scenarios.
     Precipitation anomaly and urbanization directly alter the runoff coefficient and rainfall intensity.
+    Temperature rise applies Clausius-Clapeyron scaling: each +1°C increases effective rainfall by ~7%.
     """
     if districts is None:
         districts = [
             "New Delhi", "Mumbai", "Kolkata", "Chennai",
             "Bengaluru", "Hyderabad", "Guwahati", "Srinagar",
-            "Ahmedabad", "Bhopal", "Visakhapatnam", "Patna"
+            "Ahmedabad", "Bhopal", "Visakhapatnam", "Patna",
+            "Kochi", "Thiruvananthapuram", "Mangaluru", "Goa",
+            "Puri", "Puducherry", "Ratnagiri", "Surat"
         ]
         
     results = {}
@@ -78,7 +82,16 @@ def run_district_flood_simulation(
         "Ahmedabad": {"area": 460, "capacity": 300, "base_c": 0.40},
         "Bhopal": {"area": 280, "capacity": 200, "base_c": 0.44},
         "Visakhapatnam": {"area": 540, "capacity": 250, "base_c": 0.65},
-        "Patna": {"area": 250, "capacity": 350, "base_c": 0.55}
+        "Patna": {"area": 250, "capacity": 350, "base_c": 0.55},
+        # --- Coastal Nodes ---
+        "Kochi": {"area": 380, "capacity": 350, "base_c": 0.62},
+        "Thiruvananthapuram": {"area": 220, "capacity": 180, "base_c": 0.55},
+        "Mangaluru": {"area": 250, "capacity": 280, "base_c": 0.60},
+        "Goa": {"area": 180, "capacity": 220, "base_c": 0.52},
+        "Puri": {"area": 320, "capacity": 260, "base_c": 0.68},
+        "Puducherry": {"area": 150, "capacity": 120, "base_c": 0.58},
+        "Ratnagiri": {"area": 270, "capacity": 200, "base_c": 0.63},
+        "Surat": {"area": 480, "capacity": 380, "base_c": 0.56}
     }
     
     for district in districts:
@@ -87,6 +100,11 @@ def run_district_flood_simulation(
         # Calculate simulated rainfall intensity
         # Assume rainfall occurs over a 6-hour duration
         simulated_rainfall = base_rainfall_mm * (1 + precipitation_anomaly_pct / 100)
+
+        # Clausius-Clapeyron scaling: each +1°C increases effective rainfall by ~7%
+        if temp_rise_c != 0.0:
+            simulated_rainfall *= (1 + 0.07 * temp_rise_c)
+
         intensity = simulated_rainfall / 6.0
         
         # Urbanization increases impervious surfaces, thereby increasing the runoff coefficient.

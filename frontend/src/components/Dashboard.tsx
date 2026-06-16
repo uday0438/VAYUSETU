@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { TRANSLATIONS, Language } from "../services/translations";
+import { BENEFICIARIES_DATA } from "../services/beneficiaries";
+import Globe from "./Globe";
 
 interface DistrictMetadata {
   name: string;
@@ -162,10 +165,112 @@ const DISTRICTS_METADATA: { [key: string]: DistrictMetadata } = {
     baseFlood: 55,
     baseHeat: 56,
     baseDrought: 30,
-  }
+  },
+  // --- Coastal Nodes ---
+  Kochi: {
+    name: "Kochi",
+    coords: [9.9312, 76.2673],
+    code: "COK",
+    zone: "Arabian Sea Coast (Kerala)",
+    basin: "Periyar & Vembanad Backwaters",
+    soil: "Laterite & Coastal Alluvial",
+    coeff: 0.62,
+    baseFlood: 62,
+    baseHeat: 42,
+    baseDrought: 18,
+  },
+  Thiruvananthapuram: {
+    name: "Thiruvananthapuram",
+    coords: [8.5241, 76.9366],
+    code: "TRV",
+    zone: "Southern Tip Coast (Kerala)",
+    basin: "Karamana & Neyyar Basin",
+    soil: "Laterite Red Loam",
+    coeff: 0.55,
+    baseFlood: 55,
+    baseHeat: 40,
+    baseDrought: 20,
+  },
+  Mangaluru: {
+    name: "Mangaluru",
+    coords: [12.9141, 74.8560],
+    code: "IXE",
+    zone: "West Coast (Karnataka)",
+    basin: "Netravathi & Gurupur Basin",
+    soil: "Laterite & Coastal Sandy",
+    coeff: 0.60,
+    baseFlood: 60,
+    baseHeat: 44,
+    baseDrought: 22,
+  },
+  Goa: {
+    name: "Goa",
+    coords: [15.2993, 74.1240],
+    code: "GOI",
+    zone: "Konkan Coast (Goa)",
+    basin: "Mandovi & Zuari River Basin",
+    soil: "Laterite & Alluvial",
+    coeff: 0.52,
+    baseFlood: 52,
+    baseHeat: 43,
+    baseDrought: 24,
+  },
+  Puri: {
+    name: "Puri",
+    coords: [19.8135, 85.8312],
+    code: "PUR",
+    zone: "East Coast (Odisha)",
+    basin: "Mahanadi Delta & Chilika Lagoon",
+    soil: "Deltaic Alluvial & Sandy",
+    coeff: 0.68,
+    baseFlood: 68,
+    baseHeat: 48,
+    baseDrought: 26,
+  },
+  Puducherry: {
+    name: "Puducherry",
+    coords: [11.9416, 79.8083],
+    code: "PNY",
+    zone: "Coromandel Coast",
+    basin: "Gingee & Ponnaiyar Basin",
+    soil: "Alluvial Coastal Clay",
+    coeff: 0.58,
+    baseFlood: 58,
+    baseHeat: 52,
+    baseDrought: 28,
+  },
+  Ratnagiri: {
+    name: "Ratnagiri",
+    coords: [16.9902, 73.3120],
+    code: "RTC",
+    zone: "Konkan Coast (Maharashtra)",
+    basin: "Shastri & Ratnagiri Coastal Basins",
+    soil: "Laterite & Red Sandy Loam",
+    coeff: 0.63,
+    baseFlood: 63,
+    baseHeat: 44,
+    baseDrought: 20,
+  },
+  Surat: {
+    name: "Surat",
+    coords: [21.1702, 72.8311],
+    code: "STV",
+    zone: "Gulf of Khambhat Coast (Gujarat)",
+    basin: "Tapi River Basin",
+    soil: "Black Cotton & Alluvial",
+    coeff: 0.56,
+    baseFlood: 56,
+    baseHeat: 55,
+    baseDrought: 32,
+  },
 };
 
 export default function VayuSetuDashboard() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+  const [lang, setLang] = useState<Language>("en");
+  const t = (key: string) => TRANSLATIONS[lang]?.[key] || TRANSLATIONS["en"]?.[key] || key;
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [precipitation, setPrecipitation] = useState(20);
   const [tempRise, setTempRise] = useState(1.5);
@@ -181,6 +286,8 @@ export default function VayuSetuDashboard() {
   const [xaiModalOpen, setXaiModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [docsModalOpen, setDocsModalOpen] = useState(false);
+  const [docsTab, setDocsTab] = useState<"system" | "matrix" | "beforeAfter" | "priority">("system");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Chat Assistant state variables
   const [assistantOpen, setAssistantOpen] = useState(false);
@@ -203,11 +310,197 @@ export default function VayuSetuDashboard() {
   const [accuracy, setAccuracy] = useState("92.4");
   const [drift, setDrift] = useState("1.8");
 
-  // Map state variables
-  const [mapType, setMapType] = useState<"styled" | "satellite" | "terrain">("styled");
-  const [mapRef, setMapRef] = useState<L.Map | null>(null);
-  const [tileLayerRef, setTileLayerRef] = useState<L.TileLayer | null>(null);
-  const [markers, setMarkers] = useState<{ [key: string]: L.CircleMarker }>({});
+  // Map state variables & refs
+  const [mapType, setMapType] = useState<"styled" | "satellite" | "terrain" | "globe">("styled");
+  const [co2Shift, setCo2Shift] = useState(0);
+  const [forestShift, setForestShift] = useState(0);
+  const [activeModel, setActiveModel] = useState<"PINN-ConvLSTM Hybrid" | "LSTM + XGBoost Ensemble" | "Empirical Runoff">("PINN-ConvLSTM Hybrid");
+  const [digitalTwinScale, setDigitalTwinScale] = useState<"Pilot" | "State" | "Regional" | "National">("Pilot");
+  const mapRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const markersRef = useRef<{ [key: string]: L.CircleMarker }>({});
+  const [mapReady, setMapReady] = useState(false);
+
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  // Settings & About Us states
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [textSize, setTextSize] = useState<"sm" | "md" | "lg">("md");
+  const [layoutWidth, setLayoutWidth] = useState<"standard" | "widescreen" | "full">("widescreen");
+
+  // Manage theme changes by applying class to html element
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.remove("light-theme");
+    } else {
+      document.documentElement.classList.add("light-theme");
+    }
+  }, [isDarkMode]);
+
+  // Adjust text scaling by changing HTML element font-size
+  useEffect(() => {
+    const sizeMap = {
+      sm: "14px",
+      md: "16px",
+      lg: "18px"
+    };
+    document.documentElement.style.fontSize = sizeMap[textSize];
+    return () => {
+      document.documentElement.style.fontSize = "16px";
+    };
+  }, [textSize]);
+
+  // Search state variables & refs
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [customDistricts, setCustomDistricts] = useState<{ [key: string]: DistrictMetadata }>({});
+  const searchMarkerRef = useRef<L.CircleMarker | null>(null);
+
+  // Sensor Ingestion Telemetry state
+  const [telemetryLogs, setTelemetryLogs] = useState<Array<{
+    id: string;
+    time: string;
+    source: string;
+    level: "INFO" | "SUCCESS" | "WARNING" | "INGEST";
+    messageKey: string;
+    params?: Record<string, string | number>;
+  }>>([]);
+  const [isStreaming, setIsStreaming] = useState(true);
+  const logEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Helper to render log messages with parameters localized
+  const renderLogMessage = (log: { messageKey: string; params?: Record<string, string | number> }) => {
+    let text = t(log.messageKey);
+    if (log.params) {
+      Object.entries(log.params).forEach(([key, val]) => {
+        text = text.replace(`{${key}}`, String(val));
+      });
+    }
+    return text;
+  };
+
+
+  // Helper to resolve metadata for a district (supports custom searched districts)
+  const getDistrictInfo = (name: string): DistrictMetadata => {
+    return customDistricts[name] || DISTRICTS_METADATA[name] || DISTRICTS_METADATA["Visakhapatnam"];
+  };
+
+  const handleLocationSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setSearchLoading(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          searchQuery
+        )}&limit=1&countrycodes=in`
+      );
+      if (!response.ok) throw new Error("Search failed");
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const result = data[0];
+        const lat = parseFloat(result.lat);
+        const lon = parseFloat(result.lon);
+        const displayName = result.display_name;
+        
+        // Extract a shorter name for the district/city (e.g. "Dharmavaram")
+        const nameParts = displayName.split(",");
+        const shortName = nameParts[0].trim();
+
+        // 1. Center the map on the new location
+        if (mapRef.current) {
+          mapRef.current.setView([lat, lon], 10);
+        }
+
+        // 2. Find closest predefined district to copy physical baselines (zone, basin, soil, base coeffs)
+        let closestDist: DistrictMetadata = DISTRICTS_METADATA["Visakhapatnam"];
+        let minDistance = Infinity;
+        Object.values(DISTRICTS_METADATA).forEach((d) => {
+          const dist = Math.sqrt(Math.pow(d.coords[0] - lat, 2) + Math.pow(d.coords[1] - lon, 2));
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestDist = d;
+          }
+        });
+
+        // 3. Create metadata for this custom location
+        const newLocationMetadata: DistrictMetadata = {
+          name: shortName,
+          coords: [lat, lon],
+          code: shortName.substring(0, 3).toUpperCase(),
+          zone: closestDist.zone,
+          basin: closestDist.basin,
+          soil: closestDist.soil,
+          coeff: closestDist.coeff,
+          baseFlood: closestDist.baseFlood,
+          baseHeat: closestDist.baseHeat,
+          baseDrought: closestDist.baseDrought,
+        };
+
+        // 4. Update customDistricts state
+        setCustomDistricts((prev) => ({
+          ...prev,
+          [shortName]: newLocationMetadata,
+        }));
+
+        // 5. Remove old search marker from map and markersRef if it exists
+        if (searchMarkerRef.current) {
+          searchMarkerRef.current.remove();
+          // Clean up from markersRef
+          Object.keys(markersRef.current).forEach((key) => {
+            if (markersRef.current[key] === searchMarkerRef.current) {
+              delete markersRef.current[key];
+            }
+          });
+        }
+
+        // 6. Create new search marker
+        if (mapRef.current) {
+          const marker = L.circleMarker([lat, lon], {
+            radius: 13,
+            fillColor: "#eab308", // Bright yellow for search results
+            color: "#ffffff",
+            weight: 2.5,
+            opacity: 0.9,
+            fillOpacity: 0.8,
+          }).addTo(mapRef.current);
+
+          marker.bindPopup("", {
+            closeButton: false,
+            minWidth: 190,
+          });
+
+          marker.bindTooltip(`<b>${shortName} (Searched)</b>`, {
+            permanent: false,
+            direction: "top",
+          });
+
+          marker.on("click", () => {
+            setSelectedDistrict(shortName);
+          });
+
+          searchMarkerRef.current = marker;
+          markersRef.current[shortName] = marker;
+        }
+
+        // 7. Select this location
+        setSelectedDistrict(shortName);
+        setToastMessage(`Map focused on ${shortName} (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
+        setTimeout(() => setToastMessage(null), 3000);
+      } else {
+        setToastMessage(`Location "${searchQuery}" not found. Try entering a city or district in India.`);
+        setTimeout(() => setToastMessage(null), 4000);
+      }
+    } catch (error) {
+      setToastMessage("Failed to connect to location search engine. Check your connection.");
+      setTimeout(() => setToastMessage(null), 4000);
+    } finally {
+      setSearchLoading(false);
+      setSearchQuery("");
+    }
+  };
 
   // Listen for Escape key to close modals
   useEffect(() => {
@@ -217,6 +510,7 @@ export default function VayuSetuDashboard() {
         setMetricsModalOpen(false);
         setDocsModalOpen(false);
         setAssistantOpen(false);
+        setSettingsModalOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -227,20 +521,18 @@ export default function VayuSetuDashboard() {
   useEffect(() => {
     const fetchLiveStateAndForecast = async () => {
       try {
-        const liveRes = await fetch("http://localhost:8000/api/v1/climate/live-state");
+        const liveRes = await fetch(`${API_BASE}/api/v1/climate/live-state`);
         if (liveRes.ok) {
           const liveData = await liveRes.json();
-          console.log("Live State from server:", liveData);
         }
       } catch (err) {
-        console.warn("Could not fetch live state, using defaults.", err);
+        // Safe fallback, no logs in production
       }
 
       try {
-        const forecastRes = await fetch("http://localhost:8000/api/v1/prediction/forecast");
+        const forecastRes = await fetch(`${API_BASE}/api/v1/prediction/forecast`);
         if (forecastRes.ok) {
           const forecastData = await forecastRes.json();
-          console.log("Forecast from server:", forecastData);
           if (forecastData.explainability?.shap_attribution) {
             const shap = forecastData.explainability.shap_attribution;
             setSstWeight(shap.sst_anomaly || 34);
@@ -249,75 +541,254 @@ export default function VayuSetuDashboard() {
           }
         }
       } catch (err) {
-        console.warn("Could not fetch forecast, using defaults.", err);
+        // Safe fallback, no logs in production
       }
     };
 
     fetchLiveStateAndForecast();
-  }, []);
+  }, [API_BASE]);
 
   // Update dynamic values by simulating runoff from the backend server
   useEffect(() => {
-    const fetchRunoffSimulation = async () => {
-      try {
-        const url = `http://localhost:8000/api/v1/simulation/runoff?precipitation_anomaly_pct=${precipitation}&urbanization_increase_pct=${urbanization}&temp_rise_c=${tempRise}&soil_moisture_pct=${soilMoisture}`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = await res.json();
-          console.log("Runoff Simulation from server:", data);
-          if (data.district_breakdown && data.district_breakdown[selectedDistrict]) {
-            const distData = data.district_breakdown[selectedDistrict];
-            setFloodRisk(distData.risk_score || 82);
-            
-            // Re-calculate temperature heatwave and drought risks based on inputs
-            const distInfo = DISTRICTS_METADATA[selectedDistrict] || DISTRICTS_METADATA["Visakhapatnam"];
-            const baseHeat = distInfo.baseHeat;
-            const heatCalc = Math.min(100, Math.max(0, Math.round(baseHeat + (tempRise * 8) + (urbanization * 0.3))));
-            const baseDrought = distInfo.baseDrought;
-            const droughtCalc = Math.min(100, Math.max(0, Math.round(baseDrought - (precipitation * 0.3) + (tempRise * 5))));
-            
-            setHeatwaveRisk(heatCalc);
-            setDroughtRisk(droughtCalc);
+    const handler = setTimeout(() => {
+      const fetchRunoffSimulation = async () => {
+        // Recalculate SHAP attributions based on inputs
+        const calculatedSstWeight = Math.min(60, Math.max(10, Math.round(34 + (tempRise * 3) + (co2Shift * 0.15))));
+        const calculatedHumidityWeight = Math.min(50, Math.max(10, Math.round(28 + (precipitation * 0.1) - (forestShift * 0.1))));
+        const calculatedWindWeight = 100 - calculatedSstWeight - calculatedHumidityWeight;
+        setSstWeight(calculatedSstWeight);
+        setHumidityWeight(calculatedHumidityWeight);
+        setWindWeight(calculatedWindWeight);
 
-            // Telemetry accuracy and drift
-            const calculatedAccuracy = (92.4 - (urbanization * 0.04) + (precipitation * 0.01)).toFixed(1);
-            const calculatedDrift = (1.8 + (tempRise * 0.15) + (urbanization * 0.02)).toFixed(1);
-            setAccuracy(calculatedAccuracy);
-            setDrift(calculatedDrift);
-            return;
+        try {
+          const url = `${API_BASE}/api/v1/simulation/runoff?precipitation_anomaly_pct=${precipitation}&urbanization_increase_pct=${urbanization}&temp_rise_c=${tempRise}&soil_moisture_pct=${soilMoisture}`;
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.district_breakdown && data.district_breakdown[selectedDistrict]) {
+              const distData = data.district_breakdown[selectedDistrict];
+              
+              // Recalculate with forest cover impact on runoff
+              let floodCalc = distData.risk_score || 82;
+              floodCalc = Math.min(100, Math.max(0, Math.round(floodCalc - (forestShift * 0.4))));
+              setFloodRisk(floodCalc);
+              
+              // Re-calculate temperature heatwave and drought risks based on inputs
+              const distInfo = getDistrictInfo(selectedDistrict);
+              const baseHeat = distInfo.baseHeat;
+              const heatCalc = Math.min(100, Math.max(0, Math.round(baseHeat + (tempRise * 8) + (urbanization * 0.3) + (co2Shift * 0.2) - (forestShift * 0.3))));
+              const baseDrought = distInfo.baseDrought;
+              const droughtCalc = Math.min(100, Math.max(0, Math.round(baseDrought - (precipitation * 0.3) + (tempRise * 5) - (forestShift * 0.2) + (co2Shift * 0.15))));
+              
+              setHeatwaveRisk(heatCalc);
+              setDroughtRisk(droughtCalc);
+
+              // Telemetry accuracy and drift
+              const calculatedAccuracy = (92.4 - (urbanization * 0.04) + (precipitation * 0.01)).toFixed(1);
+              const calculatedDrift = (1.8 + (tempRise * 0.15) + (urbanization * 0.02)).toFixed(1);
+              setAccuracy(calculatedAccuracy);
+              setDrift(calculatedDrift);
+              return;
+            }
           }
+        } catch (err) {
+          // Safe fallback, no logs in production
         }
-      } catch (err) {
-        console.warn("Runoff Simulation API connection failed; executing client-side mathematical twin fallback.", err);
+
+        // CLIENT-SIDE FALLBACK CALCULATIONS:
+        const distInfo = getDistrictInfo(selectedDistrict);
+        const baseFlood = distInfo.baseFlood;
+        const baseHeat = distInfo.baseHeat;
+        const baseDrought = distInfo.baseDrought;
+
+        const moistureFactor = (soilMoisture - 50) * 0.3; // -15 to +15 adjustment
+        const floodCalc = Math.min(100, Math.max(0, Math.round(baseFlood + (precipitation * 0.5) + (urbanization * 0.4) - (forestShift * 0.4) + moistureFactor)));
+        const heatCalc = Math.min(100, Math.max(0, Math.round(baseHeat + (tempRise * 8) + (urbanization * 0.3) + (co2Shift * 0.2) - (forestShift * 0.3))));
+        const droughtCalc = Math.min(100, Math.max(0, Math.round(baseDrought - (precipitation * 0.3) + (tempRise * 5) - (forestShift * 0.2) + (co2Shift * 0.15))));
+
+        setFloodRisk(floodCalc);
+        setHeatwaveRisk(heatCalc);
+        setDroughtRisk(droughtCalc);
+
+        const calculatedAccuracy = (92.4 - (urbanization * 0.04) + (precipitation * 0.01)).toFixed(1);
+        const calculatedDrift = (1.8 + (tempRise * 0.15) + (urbanization * 0.02)).toFixed(1);
+
+        setAccuracy(calculatedAccuracy);
+        setDrift(calculatedDrift);
+      };
+
+      fetchRunoffSimulation();
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [precipitation, tempRise, urbanization, soilMoisture, co2Shift, forestShift, selectedDistrict, API_BASE]);
+
+  // Telemetry Monitor: Populate initial logs on mount
+  useEffect(() => {
+    const initialLogs = [
+      {
+        id: "init-1",
+        time: new Date(Date.now() - 5000).toLocaleTimeString(),
+        source: "MOSDAC",
+        level: "INGEST" as const,
+        messageKey: "logMsgMosdac"
+      },
+      {
+        id: "init-2",
+        time: new Date(Date.now() - 4000).toLocaleTimeString(),
+        source: "NavIC",
+        level: "INFO" as const,
+        messageKey: "logMsgNavic",
+        params: { lat: 17.68, lng: 83.21 }
+      },
+      {
+        id: "init-3",
+        time: new Date(Date.now() - 3000).toLocaleTimeString(),
+        source: "IMD-GFS",
+        level: "SUCCESS" as const,
+        messageKey: "logMsgImd"
+      },
+      {
+        id: "init-4",
+        time: new Date(Date.now() - 2000).toLocaleTimeString(),
+        source: "ERA5",
+        level: "INFO" as const,
+        messageKey: "logMsgEra5"
+      },
+      {
+        id: "init-5",
+        time: new Date(Date.now() - 1000).toLocaleTimeString(),
+        source: "AI-Engine",
+        level: "SUCCESS" as const,
+        messageKey: "logMsgConvlstm"
+      }
+    ];
+    setTelemetryLogs(initialLogs);
+  }, []);
+
+  // Telemetry Monitor: Live-scrolling tick stream
+  useEffect(() => {
+    if (!isStreaming) return;
+    const interval = setInterval(() => {
+      const time = new Date().toLocaleTimeString();
+      const sources = ["MOSDAC", "IMD-GFS", "ERA5", "Drift-Audit"];
+      const randSrc = sources[Math.floor(Math.random() * sources.length)];
+      
+      let newLog: any;
+      if (randSrc === "MOSDAC") {
+        newLog = {
+          id: `rand-${Date.now()}`,
+          time,
+          source: "MOSDAC",
+          level: "INGEST",
+          messageKey: "logMsgMosdac"
+        };
+      } else if (randSrc === "IMD-GFS") {
+        newLog = {
+          id: `rand-${Date.now()}`,
+          time,
+          source: "IMD-GFS",
+          level: "SUCCESS",
+          messageKey: "logMsgImd"
+        };
+      } else if (randSrc === "ERA5") {
+        newLog = {
+          id: `rand-${Date.now()}`,
+          time,
+          source: "ERA5",
+          level: "INFO",
+          messageKey: "logMsgEra5"
+        };
+      } else {
+        newLog = {
+          id: `rand-${Date.now()}`,
+          time,
+          source: "Drift-Audit",
+          level: "SUCCESS",
+          messageKey: "logMsgDrift",
+          params: { pval: (Math.random() * 0.1 + 0.05).toFixed(3) }
+        };
       }
 
-      // CLIENT-SIDE FALLBACK CALCULATIONS:
-      const distInfo = DISTRICTS_METADATA[selectedDistrict] || DISTRICTS_METADATA["Visakhapatnam"];
-      const baseFlood = distInfo.baseFlood;
-      const baseHeat = distInfo.baseHeat;
-      const baseDrought = distInfo.baseDrought;
+      setTelemetryLogs((prev) => [...prev.slice(-49), newLog]);
+    }, 3000);
 
-      const moistureFactor = (soilMoisture - 50) * 0.3; // -15 to +15 adjustment
-      const floodCalc = Math.min(100, Math.max(0, Math.round(baseFlood + (precipitation * 0.5) + (urbanization * 0.4) + moistureFactor)));
-      const heatCalc = Math.min(100, Math.max(0, Math.round(baseHeat + (tempRise * 8) + (urbanization * 0.3))));
-      const droughtCalc = Math.min(100, Math.max(0, Math.round(baseDrought - (precipitation * 0.3) + (tempRise * 5))));
+    return () => clearInterval(interval);
+  }, [isStreaming]);
 
-      setFloodRisk(floodCalc);
-      setHeatwaveRisk(heatCalc);
-      setDroughtRisk(droughtCalc);
+  // Telemetry Monitor: Append logs instantly on state transitions
+  useEffect(() => {
+    if (!isStreaming) return;
+    const time = new Date().toLocaleTimeString();
+    const modelKey = activeModel === "PINN-ConvLSTM Hybrid" 
+      ? "logMsgConvlstm" 
+      : activeModel === "LSTM + XGBoost Ensemble" 
+      ? "logMsgLstmXgb" 
+      : "logMsgRunoff";
+    
+    setTelemetryLogs((prev) => [
+      ...prev.slice(-49),
+      {
+        id: `model-${Date.now()}`,
+        time,
+        source: "AI-Engine",
+        level: "SUCCESS",
+        messageKey: modelKey
+      }
+    ]);
+  }, [activeModel, isStreaming]);
 
-      const calculatedAccuracy = (92.4 - (urbanization * 0.04) + (precipitation * 0.01)).toFixed(1);
-      const calculatedDrift = (1.8 + (tempRise * 0.15) + (urbanization * 0.02)).toFixed(1);
+  useEffect(() => {
+    if (!isStreaming) return;
+    const time = new Date().toLocaleTimeString();
+    setTelemetryLogs((prev) => [
+      ...prev.slice(-49),
+      {
+        id: `scale-${Date.now()}`,
+        time,
+        source: "GIS-Projection",
+        level: "INFO",
+        messageKey: "logMsgScale",
+        params: { scale: digitalTwinScale }
+      }
+    ]);
+  }, [digitalTwinScale, isStreaming]);
 
-      setAccuracy(calculatedAccuracy);
-      setDrift(calculatedDrift);
-    };
+  useEffect(() => {
+    if (!isStreaming) return;
+    const time = new Date().toLocaleTimeString();
+    const distInfo = getDistrictInfo(selectedDistrict);
+    setTelemetryLogs((prev) => [
+      ...prev.slice(-48),
+      {
+        id: `navic-${Date.now()}`,
+        time,
+        source: "NavIC",
+        level: "INFO",
+        messageKey: "logMsgNavic",
+        params: { lat: distInfo.coords[0].toFixed(4), lng: distInfo.coords[1].toFixed(4) }
+      },
+      {
+        id: `anomaly-${Date.now() + 1}`,
+        time,
+        source: "System",
+        level: floodRisk > 60 ? "WARNING" : "INFO",
+        messageKey: "logMsgAnomaly",
+        params: { district: selectedDistrict }
+      }
+    ]);
+  }, [selectedDistrict, isStreaming, floodRisk]);
 
-    fetchRunoffSimulation();
-  }, [precipitation, tempRise, urbanization, soilMoisture, selectedDistrict]);
+  // Telemetry Monitor: Auto-scroll
+  useEffect(() => {
+    if (logEndRef.current) {
+      logEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [telemetryLogs]);
 
   // Initialize Leaflet Map
   useEffect(() => {
+    if (mapRef.current) return;
     const container = document.getElementById("map-container");
     if (!container) return;
 
@@ -329,14 +800,14 @@ export default function VayuSetuDashboard() {
       attributionControl: false,
     });
 
-    setMapRef(mapInstance);
+    mapRef.current = mapInstance;
 
     // Initial styled dark tile layer
     const tileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
       maxZoom: 19,
     }).addTo(mapInstance);
 
-    setTileLayerRef(tileLayer);
+    tileLayerRef.current = tileLayer;
 
     const districts = Object.values(DISTRICTS_METADATA).map((d) => ({
       name: d.name,
@@ -374,16 +845,26 @@ export default function VayuSetuDashboard() {
       newMarkers[dist.name] = circle;
     });
 
-    setMarkers(newMarkers);
+    markersRef.current = newMarkers;
+    setMapReady(true);
 
     return () => {
-      mapInstance.remove();
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+      if (searchMarkerRef.current) {
+        searchMarkerRef.current = null;
+      }
+      tileLayerRef.current = null;
+      markersRef.current = {};
+      setMapReady(false);
     };
   }, []);
 
   // Update Map Tile Layer based on Type
   useEffect(() => {
-    if (!mapRef || !tileLayerRef) return;
+    if (!mapRef.current || !tileLayerRef.current) return;
 
     let url = "";
     if (mapType === "satellite") {
@@ -391,22 +872,25 @@ export default function VayuSetuDashboard() {
     } else if (mapType === "terrain") {
       url = "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png";
     } else {
-      url = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+      url = isDarkMode 
+        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
     }
 
-    tileLayerRef.setUrl(url);
-  }, [mapType, mapRef, tileLayerRef]);
+    tileLayerRef.current.setUrl(url);
+  }, [mapType, isDarkMode]);
 
   // Dynamically update map marker styles and popup details based on risk scores
   useEffect(() => {
-    Object.entries(markers).forEach(([name, marker]) => {
+    if (!mapReady) return;
+    Object.entries(markersRef.current).forEach(([name, marker]) => {
       let score = 0;
       let basin = "";
       let soil = "";
       let region = "";
       let coeff = 0;
 
-      const distInfo = DISTRICTS_METADATA[name] || DISTRICTS_METADATA["Visakhapatnam"];
+      const distInfo = getDistrictInfo(name);
       basin = distInfo.basin;
       soil = distInfo.soil;
       region = distInfo.zone;
@@ -426,20 +910,19 @@ export default function VayuSetuDashboard() {
         fillColor: color,
         radius: isSelected ? 13 : 9,
         weight: isSelected ? 2.5 : 1.5,
-        color: isSelected ? "#6366f1" : "#ffffff",
+        color: isSelected ? "#6366f1" : (isDarkMode ? "#ffffff" : "#475569"),
       });
 
       // HTML contents inside map click popup
       const popupHtml = `
-        <div style="font-family: monospace; color: #f1f5f9; background: #020617; padding: 6px; font-size: 11px; min-width: 175px;">
-          <div style="font-weight: bold; border-bottom: 1px solid #1e293b; padding-bottom: 4px; margin-bottom: 6px; color: #818cf8; text-transform: uppercase;">📍 ${name}</div>
-          <div style="margin-bottom: 2px;">• <b>Zone:</b> ${region}</div>
-          <div style="margin-bottom: 2px;">• <b>Basin:</b> ${basin}</div>
-          <div style="margin-bottom: 2px;">• <b>Soil:</b> ${soil}</div>
-          <div style="margin-bottom: 2px;">• <b>Soil Moisture:</b> ${soilMoisture}%</div>
-          <div style="margin-bottom: 2px;">• <b>Runoff Base (C):</b> ${coeff}</div>
+        <div style="font-family: monospace; color: ${isDarkMode ? '#f1f5f9' : '#0f172a'}; background: ${isDarkMode ? '#020617' : '#ffffff'}; padding: 6px; font-size: 11px; min-width: 175px;">
+          <div style="font-weight: bold; border-bottom: 1px solid ${isDarkMode ? '#1e293b' : '#cbd5e1'}; padding-bottom: 4px; margin-bottom: 6px; color: #818cf8; text-transform: uppercase;">📍 ${name}</div>
+          <div style="margin-bottom: 2px;">• <b>${t("zone")}:</b> ${t(region)}</div>
+          <div style="margin-bottom: 2px;">• <b>${t("basin")}:</b> ${t(basin)}</div>
+          <div style="margin-bottom: 2px;">• <b>${t("soil")}:</b> ${t(soil)}</div>
+          <div style="margin-bottom: 2px;">• <b>${t("soilMoistureAmc")}:</b> ${soilMoisture}%</div>
           <div style="margin-top: 6px; padding: 4px; border-radius: 4px; font-weight: bold; text-align: center; background: ${color}20; color: ${color}; border: 1px solid ${color}40;">
-            Runoff Risk: ${score}%
+            ${t("floodRisk")}: ${score}%
           </div>
         </div>
       `;
@@ -447,18 +930,19 @@ export default function VayuSetuDashboard() {
       marker.setPopupContent(popupHtml);
 
       // Auto open popup for clicked active district
-      if (isSelected && mapRef) {
+      if (isSelected && mapRef.current) {
         marker.openPopup();
       }
     });
-  }, [markers, floodRisk, selectedDistrict, precipitation, soilMoisture, mapRef]);
+  }, [mapReady, floodRisk, selectedDistrict, precipitation, soilMoisture, customDistricts, isDarkMode, lang]);
 
   const runSimulation = () => {
     setSimulating(true);
     setTimeout(() => {
       setSimulating(false);
       setTimelineStep(4); // Switch to Scenario tab automatically
-      alert(`Hydrometeorological Runoff Engine simulation completed for ${selectedDistrict} region!`);
+      setToastMessage(t("simulationDone"));
+      setTimeout(() => setToastMessage(null), 4000);
     }, 1500);
   };
 
@@ -476,21 +960,18 @@ export default function VayuSetuDashboard() {
       let reply = "";
 
       const activeDist = selectedDistrict;
-      const riskLevel = floodRisk > 75 ? "CRITICAL ALERT" : "ELEVATED WARNING";
+      const riskLevel = floodRisk > 75 ? t("lblCriticalAlert") : t("lblElevatedWarning");
 
       if (query.includes("hello") || query.includes("hi ") || query.includes("hey") || query.includes("greetings")) {
-        reply = `Greetings from the VAYUSETU Operations Room! I am your AI Space Assistant. I am connected to the live NavIC and MOSDAC telemetry channels for Coastal Andhra Pradesh. You can ask me about regional flood warnings, temperature anomalies, SHAP attributions, or model quality drift.`;
+        reply = t("chatReplyGreetings");
       } else if (query.includes("map") || query.includes("satellite") || query.includes("terrain") || query.includes("basemap") || query.includes("style")) {
-        reply = `You can toggle the map view using the style switcher card on the map interface. We support:
-1. **Styled Space Map** (CartoDB Dark Matter) for telemetry analysis.
-2. **Satellite View** (Esri World Imagery) for checking crop/urban density.
-3. **Terrain View** (OpenTopoMap) to analyze elevations and river runoff canals.
-Click on VSKP, VJW, or NLR markers to focus the warning panels.`;
+        reply = t("chatReplyMap");
       } else if (
         (() => {
           let matched = false;
-          Object.keys(DISTRICTS_METADATA).forEach((key) => {
-            const d = DISTRICTS_METADATA[key];
+          const allDistricts = { ...DISTRICTS_METADATA, ...customDistricts };
+          Object.keys(allDistricts).forEach((key) => {
+            const d = allDistricts[key];
             if (query.includes(d.name.toLowerCase()) || query.includes(d.code.toLowerCase()) || (d.name === "Visakhapatnam" && query.includes("vizag"))) {
               matched = true;
             }
@@ -499,56 +980,78 @@ Click on VSKP, VJW, or NLR markers to focus the warning panels.`;
         })()
       ) {
         let matchedDistrictKey = "";
-        Object.keys(DISTRICTS_METADATA).forEach((key) => {
-          const d = DISTRICTS_METADATA[key];
+        const allDistricts = { ...DISTRICTS_METADATA, ...customDistricts };
+        Object.keys(allDistricts).forEach((key) => {
+          const d = allDistricts[key];
           if (query.includes(d.name.toLowerCase()) || query.includes(d.code.toLowerCase()) || (d.name === "Visakhapatnam" && query.includes("vizag"))) {
             matchedDistrictKey = key;
           }
         });
-        const d = DISTRICTS_METADATA[matchedDistrictKey];
+        const d = allDistricts[matchedDistrictKey];
         const isSel = selectedDistrict === d.name;
         const distFlood = isSel ? floodRisk : Math.min(100, Math.max(0, Math.round((d.coeff * 100) + (precipitation * 0.4))));
         const distHeat = isSel ? heatwaveRisk : Math.min(100, Math.max(0, Math.round(d.baseHeat + (tempRise * 8) + (urbanization * 0.3))));
         const distDrought = isSel ? droughtRisk : Math.min(100, Math.max(0, Math.round(d.baseDrought - (precipitation * 0.3) + (tempRise * 5))));
 
-        reply = `${d.name} (${d.code}) Telemetry & Hydrological Twin Projections:
-- **Region Zone**: ${d.zone}
-- **Catchment River Basin**: ${d.basin}
-- **Dominant Soil Type**: ${d.soil}
-- **Base Runoff Coeff (C)**: ${d.coeff}
-- **Simulated Runoff Flood Risk**: ${distFlood}%
-- **Simulated Heatwave Risk**: ${distHeat}%
-- **Simulated Drought Risk**: ${distDrought}%
-- **Active Scenarios**: Precipitation Shift +${precipitation}%, Temp Rise +${tempRise}°C, Urban cover +${urbanization}%
-Advisory: ${distFlood > 75 ? "⚠️ CRITICAL HAZARD. Initiate drainage operations on Godavari/Krishna/Pennar canals immediately, notify NDRF, and close low-lying sluices." : distFlood > 50 ? "⚠️ ELEVATED WARNING. Monitor municipal runoff channels and issue agricultural warnings to rural areas." : "✅ SAFE. Hydrological twin discharge calculations indicate standard drainage levels."}`;
+        const advisory = distFlood > 75 
+          ? t("advisoryCritical") 
+          : distFlood > 50 
+            ? t("advisoryElevated") 
+            : t("advisoryNormal");
+
+        reply = t("chatReplyDistrict")
+          .replace("{district}", d.name)
+          .replace("{code}", d.code)
+          .replace("{zone}", t(d.zone))
+          .replace("{basin}", t(d.basin))
+          .replace("{soil}", t(d.soil))
+          .replace("{coeff}", d.coeff.toString())
+          .replace("{floodRisk}", distFlood.toString())
+          .replace("{heatRisk}", distHeat.toString())
+          .replace("{droughtRisk}", distDrought.toString())
+          .replace("{precipitation}", precipitation.toString())
+          .replace("{tempRise}", tempRise.toString())
+          .replace("{urbanization}", urbanization.toString())
+          .replace("{advisory}", advisory);
       } else if (query.includes("fews") || query.includes("flood") || query.includes("rain") || query.includes("runoff") || query.includes("precipitation")) {
-        reply = `The Flood Early Warning System (FEWS) shows a predicted rainfall anomaly of +${precipitation}% for ${activeDist}. The calculated runoff risk is ${floodRisk}%, which triggers a ${riskLevel}. Our rational runoff engine (Q = C * I * A) indicates high basin drainage loads.`;
+        reply = t("chatReplyFews")
+          .replace("{precipitation}", precipitation.toString())
+          .replace("{district}", activeDist)
+          .replace("{floodRisk}", floodRisk.toString())
+          .replace("{riskLevel}", riskLevel);
       } else if (query.includes("heat") || query.includes("temp") || query.includes("drought") || query.includes("lst") || query.includes("sst")) {
-        reply = `The Land Surface Temperature (LST) anomaly is +${tempRise}°C, causing a heatwave risk of ${heatwaveRisk}% and a drought risk of ${droughtRisk}% in ${activeDist}. INSAT Sea Surface Temperature (SST) is currently 30.2°C.`;
-      } else if (query.includes("shap") || query.includes("xai") || query.includes("explain") || query.includes("attribution") || query.includes("weight")) {
-        reply = `The Explainable AI (XAI) diagnostics show live SHAP values contributing to rainfall predictions:
-- Sea Surface Temperature (SST) Anomaly: ${sstWeight}% contribution
-- Gridded Relative Humidity: ${humidityWeight}% contribution
-- Spatio-Temporal Wind Vectors: ${windWeight}% contribution
-Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
+        reply = t("chatReplyHeat")
+          .replace("{tempRise}", tempRise.toString())
+          .replace("{heatwaveRisk}", heatwaveRisk.toString())
+          .replace("{droughtRisk}", droughtRisk.toString())
+          .replace("{district}", activeDist);
+      } else if (query.includes("shap") || query.includes("gradient") || query.includes("ig") || query.includes("xai") || query.includes("explain") || query.includes("attribution") || query.includes("weight")) {
+        reply = t("chatReplyShap")
+          .replace("{sstWeight}", sstWeight.toString())
+          .replace("{humidityWeight}", humidityWeight.toString())
+          .replace("{windWeight}", windWeight.toString());
       } else if (query.includes("accuracy") || query.includes("drift") || query.includes("f1") || query.includes("metric") || query.includes("ks-test") || query.includes("performance")) {
-        reply = `Model Quality & Telemetry Audit:
-- Accuracy: ${accuracy}% (Validation dataset)
-- F1-Score: 0.91
-- Data Drift: ${drift}% (calculated from daily INSAT-3D grid variance)
-- KS-Test status: PASSED
-- Training Dataset: 15 Years (2010-2025) historical IMD weather records.`;
+        reply = t("chatReplyAccuracy")
+          .replace("{accuracy}", accuracy)
+          .replace("{drift}", drift);
       } else if (query.includes("soil") || query.includes("moisture") || query.includes("amc") || query.includes("saturation") || query.includes("antecedent")) {
-        reply = `Soil Moisture & Antecedent Moisture Condition (AMC) Report:
-- **Current Saturation Index**: ${soilMoisture}%
-- **Hydrological Impact**: At ${soilMoisture}%, the soil absorption threshold modifies the runoff coefficient (C) by ${((soilMoisture - 50) * 0.003).toFixed(3)}.
-- **Physical Context**: Higher soil moisture (AMC-III / wet conditions) reduces the soil's infiltration capacity, accelerating surface runoff. Lower moisture (AMC-I / dry conditions) increases infiltration, buffering basins against flood peaks.`;
+        reply = t("chatReplySoil")
+          .replace("{soilMoisture}", soilMoisture.toString())
+          .replace("{coeffAdj}", ((soilMoisture - 50) * 0.003).toFixed(3));
       } else if (query.includes("isro") || query.includes("satellite") || query.includes("navic") || query.includes("mosdac")) {
-        reply = `VAYUSETU fuses ISRO's INSAT-3D LST/SST spatial grids, NavIC coordinate telemetry, and MOSDAC NetCDF weather databases to dynamically run physical simulations in near real-time.`;
+        reply = t("chatReplyIsro");
       } else if (query.includes("who") || query.includes("creator") || query.includes("team")) {
-        reply = `VAYUSETU was designed and built for the ISRO Bharatiya Antariksh Hackathon 2026 by ClimateX Labs (led by Kalle Uday Bhaskar). It aims to bridge raw meteorological data with actionable disaster warning decisions.`;
+        reply = t("chatReplyWho");
       } else {
-        reply = `I have received your query: "${currentInput}". I am analyzing the telemetry for the Coastal Andhra Pradesh region. Currently, for ${activeDist}, the What-If parameters model a +${precipitation}% precipitation shift, +${tempRise}°C temperature anomaly, and +${urbanization}% urban density increase. This results in an estimated flood risk of ${floodRisk}% (${riskLevel}) and a heatwave risk of ${heatwaveRisk}%. Is there a specific parameter or region you would like me to detail?`;
+        reply = t("chatReplyFallback")
+          .replace("{input}", currentInput)
+          .replace("{district}", activeDist)
+          .replace("{precipitation}", precipitation.toString())
+          .replace("{tempRise}", tempRise.toString())
+          .replace("{urbanization}", urbanization.toString())
+          .replace("{floodRisk}", floodRisk.toString())
+          .replace("{riskLevel}", riskLevel)
+          .replace("{heatwaveRisk}", heatwaveRisk.toString());
       }
 
       setChatHistory((prev) => [...prev, { role: "assistant", text: reply }]);
@@ -557,11 +1060,11 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
 
   const getTimelineLabel = (step: number) => {
     switch(step) {
-      case 0: return "Historical Climate (Past)";
-      case 1: return "Live Climate Grid (Current)";
-      case 2: return "24h Forecasting Window";
-      case 3: return "48h Forecasting Window";
-      case 4: return "What-If Scenario Twin";
+      case 0: return t("pastState");
+      case 1: return t("currentState");
+      case 2: return t("forecast24");
+      case 3: return t("forecast48");
+      case 4: return t("scenarioTwin");
       default: return "";
     }
   };
@@ -571,6 +1074,66 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
     if (score > 50) return "#f59e0b"; // Orange (Amber)
     return "#10b981"; // Green (Normal)
   };
+
+  const distInfo = getDistrictInfo(selectedDistrict);
+  
+  // Calculate summary texts dynamically
+  const getFloodStateText = () => {
+    const basinTranslated = t(distInfo.basin).split('/')[0].trim();
+    if (floodRisk > 75) {
+      return t("floodCritical")
+        .replace("{floodRisk}", floodRisk.toString())
+        .replace("{basin}", basinTranslated);
+    } else if (floodRisk > 50) {
+      return t("floodElevated")
+        .replace("{floodRisk}", floodRisk.toString());
+    } else {
+      return t("floodNormal")
+        .replace("{floodRisk}", floodRisk.toString());
+    }
+  };
+
+  const getHeatStateText = () => {
+    if (heatwaveRisk > 75) {
+      return t("heatCritical")
+        .replace("{heatwaveRisk}", heatwaveRisk.toString());
+    } else if (heatwaveRisk > 50) {
+      return t("heatElevated")
+        .replace("{heatwaveRisk}", heatwaveRisk.toString());
+    } else {
+      return t("heatNormal")
+        .replace("{heatwaveRisk}", heatwaveRisk.toString());
+    }
+  };
+
+  const getDroughtStateText = () => {
+    if (droughtRisk > 65) {
+      return t("droughtCritical")
+        .replace("{droughtRisk}", droughtRisk.toString());
+    } else if (droughtRisk > 40) {
+      return t("droughtElevated")
+        .replace("{droughtRisk}", droughtRisk.toString());
+    } else {
+      return t("droughtNormal")
+        .replace("{droughtRisk}", droughtRisk.toString());
+    }
+  };
+
+  const floodStateText = getFloodStateText();
+  const heatStateText = getHeatStateText();
+  const droughtStateText = getDroughtStateText();
+  const districtsList = Object.values({...DISTRICTS_METADATA, ...customDistricts}).map((d) => {
+    const isSel = d.name === selectedDistrict;
+    const score = isSel 
+      ? floodRisk 
+      : Math.min(100, Math.max(0, Math.round((d.coeff * 100) + (precipitation * 0.4))));
+    return {
+      name: d.name,
+      coords: d.coords,
+      color: getRiskColor(score),
+      risk: score
+    };
+  });
 
   return (
     <div className="min-h-screen space-bg text-slate-100 font-sans relative">
@@ -586,13 +1149,13 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
       {/* Official Government Header */}
       <div className="relative z-10 bg-[#0B2545]/90 border-b border-slate-800 px-4 py-2 flex items-center justify-between text-xs text-slate-300 backdrop-blur-md">
         <div className="flex items-center gap-2">
-          <span className="bg-[#134074] text-white px-2 py-0.5 rounded font-bold font-mono">ISRO COLLABORATIVE</span>
-          <span className="hidden sm:inline">Ministry of Earth Sciences (MoES) & ISRO Bharatiya Antariksh Hackathon 2026</span>
+          <span className="bg-[#134074] text-white px-2 py-0.5 rounded font-bold font-mono">{t("isroCollaborative")}</span>
+          <span className="hidden sm:inline">{t("govTitle")}</span>
         </div>
         <div className="flex items-center gap-3 font-mono">
-          <span>Telemetry: NavIC Fused</span>
+          <span>{t("telemetryNavic")}</span>
           <span className="h-3 w-px bg-slate-700"></span>
-          <span>Bhuvan GIS Gateway</span>
+          <span>{t("bhuvanGis")}</span>
         </div>
       </div>
 
@@ -622,55 +1185,87 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
 
           <div>
             <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-              VAYUSETU <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-0.5 rounded font-mono">PILOT TWIN</span>
+              VAYUSETU <span className="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-0.5 rounded font-mono">{t("pilotTwin")}</span>
             </h1>
-            <p className="text-[10px] text-slate-400">Spatio-Temporal Climate Predictive Grid</p>
+            <p className="text-[10px] text-slate-400">{t("subtitle")}</p>
           </div>
         </div>
 
         {/* Center/Desktop Navigation bar - Styled as premium pill links */}
         <nav className="hidden md:flex items-center gap-2 bg-slate-900/40 border border-slate-800/60 p-1 rounded-xl">
+          <span className="text-xs font-bold text-white px-3 font-mono tracking-wider border-r border-slate-800 pr-3">VAYUSETU</span>
           <a 
             href="#dashboard" 
             className="bg-indigo-600/20 text-indigo-300 border border-indigo-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-[0_0_10px_rgba(99,102,241,0.12)] transition"
           >
-            🛡️ Operations Room
+            {t("operationsRoom")}
           </a>
           <button 
             onClick={() => setXaiModalOpen(true)}
             className="hover:bg-slate-900/60 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 transition"
             aria-label="Open Explainable AI diagnostics modal"
           >
-            🧠 Explainable AI (XAI)
+            {t("xaiLink")}
           </button>
           <button 
             onClick={() => setMetricsModalOpen(true)}
             className="hover:bg-slate-900/60 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 transition"
             aria-label="Open Model quality metrics modal"
           >
-            📈 Model Telemetry
+            {t("telemetryLink")}
           </button>
           <button 
             onClick={() => setAssistantOpen(!assistantOpen)}
             className="hover:bg-slate-900/60 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 transition"
             aria-label="Toggle RAG Space assistant"
           >
-            💬 Space Assistant
+            {t("assistantLink")}
           </button>
           <button 
             onClick={() => setDocsModalOpen(true)}
             className="hover:bg-slate-900/60 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 transition"
             aria-label="Open system documentation modal"
           >
-            ℹ️ System Docs
+            {t("docsLink")}
           </button>
         </nav>
 
         {/* Live Status Tag */}
         <div className="flex items-center gap-2">
+          {/* Language Selector Dropdown */}
+          <div className="relative inline-block">
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value as Language)}
+              className="flex items-center justify-center p-2 rounded-lg bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-300 transition text-xs font-mono focus:outline-none cursor-pointer"
+              aria-label="Select language"
+            >
+              <option value="en" className="bg-slate-950 text-slate-200">EN - English</option>
+              <option value="hi" className="bg-slate-950 text-slate-200">HI - हिन्दी</option>
+              <option value="te" className="bg-slate-950 text-slate-200">TE - తెలుగు</option>
+              <option value="ta" className="bg-slate-950 text-slate-200">TA - தமிழ்</option>
+              <option value="kn" className="bg-slate-950 text-slate-200">KN - ಕನ್ನಡ</option>
+            </select>
+          </div>
+          {/* Theme Toggle Button */}
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className="flex items-center justify-center p-2 rounded-lg bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-300 transition text-xs font-mono gap-1.5"
+            aria-label="Toggle light/dark theme"
+          >
+            {isDarkMode ? t("themeLight") : t("themeDark")}
+          </button>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.1)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping"></span> NAVIC SATELLITE
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping"></span> {t("navicSatellite")}
           </span>
+          <button
+            onClick={() => setSettingsModalOpen(true)}
+            className="flex items-center justify-center p-2 rounded-lg bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition text-xs"
+            aria-label="System Settings and Config"
+            title={t("settingsTitle")}
+          >
+            ⚙️
+          </button>
           <button 
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 rounded bg-slate-900 border border-slate-800 hover:bg-slate-800 transition"
@@ -683,58 +1278,100 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
 
       {/* Mobile Menu Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 bg-slate-950/95 flex flex-col pt-20 px-6 gap-6 backdrop-blur-lg">
+        <div className="md:hidden fixed inset-0 z-50 bg-slate-950/95 flex flex-col pt-6 px-6 gap-6 backdrop-blur-lg animate-in slide-in-from-top duration-300">
+          <div className="flex justify-end font-mono">
+            <button 
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-slate-400 hover:text-white text-2xl font-bold p-2 focus:outline-none"
+              aria-label="Close menu"
+            >
+              ✕
+            </button>
+          </div>
           <a 
             href="#dashboard" 
             onClick={() => setMobileMenuOpen(false)}
             className="text-lg font-semibold text-indigo-400 border-b border-slate-800 pb-3"
           >
-            🛡️ Operations Room
+            {t("operationsRoom")}
           </a>
           <button 
             onClick={() => { setMobileMenuOpen(false); setXaiModalOpen(true); }}
             className="text-left text-lg font-semibold text-white border-b border-slate-800 pb-3"
             aria-label="Open Explainable AI diagnostics modal from mobile menu"
           >
-            🧠 Explainable AI (XAI)
+            {t("xaiLink")}
           </button>
           <button 
             onClick={() => { setMobileMenuOpen(false); setMetricsModalOpen(true); }}
             className="text-left text-lg font-semibold text-white border-b border-slate-800 pb-3"
             aria-label="Open Model quality metrics modal from mobile menu"
           >
-            📈 Model Telemetry
+            {t("telemetryLink")}
           </button>
           <button 
             onClick={() => { setMobileMenuOpen(false); setAssistantOpen(true); }}
             className="text-left text-lg font-semibold text-white border-b border-slate-800 pb-3"
             aria-label="Open chatbot from mobile menu"
           >
-            💬 Space Assistant
+            {t("assistantLink")}
           </button>
           <button 
             onClick={() => { setMobileMenuOpen(false); setDocsModalOpen(true); }}
-            className="text-left text-lg font-semibold text-white pb-3"
+            className="text-left text-lg font-semibold text-white pb-3 border-b border-slate-800"
             aria-label="Open documentation from mobile menu"
           >
-            ℹ️ System Docs
+            {t("docsLink")}
+          </button>
+          <div className="flex flex-col gap-2 pb-3 border-b border-slate-800">
+            <span className="text-sm font-semibold text-slate-400 font-mono">{t("selectLanguageLabel")}</span>
+            <select
+              value={lang}
+              onChange={(e) => {
+                setLang(e.target.value as Language);
+                setMobileMenuOpen(false);
+              }}
+              className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-white font-mono text-sm focus:outline-none cursor-pointer"
+            >
+              <option value="en">EN - English</option>
+              <option value="hi">HI - हिन्दी</option>
+              <option value="te">TE - తెలుగు</option>
+              <option value="ta">TA - தமிழ்</option>
+              <option value="kn">KN - ಕನ್ನಡ</option>
+            </select>
+          </div>
+          <button 
+            onClick={() => { setMobileMenuOpen(false); setIsDarkMode(!isDarkMode); }}
+            className="text-left text-lg font-semibold text-indigo-400 pb-3 flex items-center gap-2"
+            aria-label="Toggle light/dark theme from mobile menu"
+          >
+            {isDarkMode ? t("themeLightMobile") : t("themeDarkMobile")}
           </button>
         </div>
       )}
 
       {/* Main Layout Grid */}
-      <main id="dashboard" className="relative z-10 max-w-[1600px] mx-auto p-4 lg:p-6 space-y-6">
+      <main 
+        id="dashboard" 
+        className={`relative z-10 mx-auto p-4 lg:p-6 space-y-6 ${
+          layoutWidth === "standard" 
+            ? "max-w-[1280px]" 
+            : layoutWidth === "full" 
+            ? "max-w-full" 
+            : "max-w-[1600px]"
+        }`}
+      >
         
         {/* Warning & Decision Support Panel */}
         <div className="bg-slate-950/70 border border-slate-800/80 backdrop-blur-md rounded-r-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-[0_0_15px_rgba(59,130,246,0.06)] border-l-4 border-l-amber-500">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-bold">FEWS CLIMATE ALERT</span>
-              <h3 className="font-bold text-slate-200 text-sm">FLOOD EARLY WARNING SYSTEM ACTIVE — DISTRICT: {selectedDistrict.toUpperCase()}</h3>
+              <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-bold">{t("fewsClimateAlert")}</span>
+              <h3 className="font-bold text-slate-200 text-sm">{t("fewsActiveDistrict").replace("{district}", selectedDistrict.toUpperCase())}</h3>
             </div>
             <p className="text-xs text-slate-400">
-              Active Focus: <span className="font-semibold text-white">{selectedDistrict}</span> | Current Rainfall: <span className="font-semibold text-slate-200">120 mm</span> | Predicted 48h Anomaly: <span className="font-semibold text-red-400">+{precipitation}%</span>. 
-              Runoff hazard level is estimated at <span className="font-semibold text-red-400">{floodRisk}%</span>.
+              {t("activeFocus")}: <span className="font-semibold text-white">{selectedDistrict}</span> | {t("currentRainfall")}: <span className="font-semibold text-slate-200">120 mm</span> | {t("predicted48h")}: <span className="font-semibold text-red-400">+{precipitation}%</span>. 
+              {t("runoffHazardEst").replace("{floodRisk}", floodRisk.toString())}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -743,14 +1380,14 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
               className="bg-indigo-950/80 hover:bg-[#134074] text-indigo-300 border border-indigo-800 px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition shadow-[0_0_10px_rgba(99,102,241,0.1)]"
               aria-label="Explain prediction model"
             >
-              🧠 Explain Prediction Model
+              {t("explainPredictionModel")}
             </button>
             <button 
               onClick={() => setMetricsModalOpen(true)}
               className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition"
               aria-label="View accuracy metrics"
             >
-              📈 View Accuracy Metrics
+              {t("viewAccuracyMetrics")}
             </button>
           </div>
         </div>
@@ -759,19 +1396,73 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           
           {/* Panel 1: What-If Simulator & Timeline Controls */}
-          <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-5 space-y-6 lg:col-span-1 flex flex-col justify-between shadow-[0_0_15px_rgba(59,130,246,0.05)]">
+          <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-5 space-y-6 lg:col-span-1 flex flex-col justify-between shadow-[0_0_15px_rgba(59,130,246,0.05)] text-slate-200">
             <div className="space-y-5">
               <div>
-                <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🧪 WHAT-IF CLIMATE SIMULATOR</h2>
-                <p className="text-xs text-slate-500 mt-1">Adjust environmental variables to model spatial impact shifts.</p>
+                <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("simulatorTitle")}</h2>
+                <p className="text-xs text-slate-500 mt-1">{t("simulatorDesc")}</p>
+              </div>
+
+              {/* Climate Policy Sandbox Presets */}
+              <div className="space-y-1.5 mt-2">
+                <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block">{t("runPolicySandbox")}</span>
+                <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempRise(1.5);
+                      setCo2Shift(10);
+                      setForestShift(-5);
+                      setPrecipitation(0);
+                      setUrbanization(0);
+                    }}
+                    className="p-1 bg-slate-900 hover:bg-[#134074] border border-slate-800 text-slate-300 hover:text-white rounded text-left transition"
+                  >
+                    🌡️ Global Warming
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUrbanization(20);
+                      setForestShift(-15);
+                      setTempRise(2.0);
+                      setCo2Shift(5);
+                    }}
+                    className="p-1 bg-slate-900 hover:bg-[#134074] border border-slate-800 text-slate-300 hover:text-white rounded text-left transition"
+                  >
+                    🏢 Urbanization
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForestShift(15);
+                      setCo2Shift(-5);
+                      setTempRise(-0.5);
+                    }}
+                    className="p-1 bg-slate-900 hover:bg-[#134074] border border-slate-800 text-slate-300 hover:text-white rounded text-left transition"
+                  >
+                    🌳 Afforestation
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrecipitation(40);
+                      setTempRise(1.5);
+                      setSoilMoisture(85);
+                    }}
+                    className="p-1 bg-slate-900 hover:bg-[#134074] border border-slate-800 text-slate-300 hover:text-white rounded text-left transition"
+                  >
+                    🌧️ Extreme Monsoon
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-4">
                 {/* Rainfall slider */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs">
-                    <label htmlFor="precipitation-slider" className="text-slate-300">Precipitation Anomaly</label>
-                    <span className="text-indigo-400 font-mono font-bold">+{precipitation}%</span>
+                    <label htmlFor="precipitation-slider" className="text-slate-300">{t("precipitationShift")}</label>
+                    <span className="text-indigo-400 font-mono font-bold">{precipitation > 0 ? '+' : ''}{precipitation}%</span>
                   </div>
                   <input 
                     id="precipitation-slider"
@@ -788,7 +1479,7 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                 {/* Temperature slider */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs">
-                    <label htmlFor="temperature-slider" className="text-slate-300">Temperature Anomaly</label>
+                    <label htmlFor="temperature-slider" className="text-slate-300">{t("temperatureAnomaly")}</label>
                     <span className="text-indigo-400 font-mono font-bold">+{tempRise}°C</span>
                   </div>
                   <input 
@@ -804,10 +1495,46 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                   />
                 </div>
 
+                {/* CO2 level slider */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <label htmlFor="co2-slider" className="text-slate-300">{t("co2LevelLabel")}</label>
+                    <span className="text-indigo-400 font-mono font-bold">{co2Shift > 0 ? '+' : ''}{co2Shift}% ({Math.round(418 * (1 + co2Shift / 100))} ppm)</span>
+                  </div>
+                  <input 
+                    id="co2-slider"
+                    type="range" 
+                    min="-20" 
+                    max="50" 
+                    value={co2Shift}
+                    onChange={(e) => setCo2Shift(parseInt(e.target.value))}
+                    className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    aria-label="CO2 Level Slider"
+                  />
+                </div>
+
+                {/* Forest cover slider */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <label htmlFor="forest-slider" className="text-slate-300">{t("forestCoverLabel")}</label>
+                    <span className="text-indigo-400 font-mono font-bold">{forestShift > 0 ? '+' : ''}{forestShift}%</span>
+                  </div>
+                  <input 
+                    id="forest-slider"
+                    type="range" 
+                    min="-30" 
+                    max="30" 
+                    value={forestShift}
+                    onChange={(e) => setForestShift(parseInt(e.target.value))}
+                    className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    aria-label="Forest Cover Slider"
+                  />
+                </div>
+
                 {/* Urbanization slider */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs">
-                    <label htmlFor="urbanization-slider" className="text-slate-300">Urban Cover Shift</label>
+                    <label htmlFor="urbanization-slider" className="text-slate-300">{t("urbanCoverShift")}</label>
                     <span className="text-indigo-400 font-mono font-bold">+{urbanization}%</span>
                   </div>
                   <input 
@@ -825,7 +1552,7 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                 {/* Soil Moisture slider */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs">
-                    <label htmlFor="soil-moisture-slider" className="text-slate-300">Soil Moisture (AMC)</label>
+                    <label htmlFor="soil-moisture-slider" className="text-slate-300">{t("soilMoistureAmc")}</label>
                     <span className="text-indigo-400 font-mono font-bold">{soilMoisture}%</span>
                   </div>
                   <input 
@@ -841,29 +1568,68 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                 </div>
               </div>
 
+              {/* Scope Switcher */}
+              <div className="space-y-2 pt-2 border-t border-slate-900">
+                <label className="text-[10px] uppercase font-mono tracking-widest text-slate-500 font-bold block">{t("scaleSelectorLabel")}</label>
+                <div className="grid grid-cols-2 gap-1 text-[9px] font-mono">
+                  {(["Pilot", "State", "Regional", "National"] as const).map((sc) => (
+                    <button
+                      key={sc}
+                      type="button"
+                      onClick={() => setDigitalTwinScale(sc)}
+                      className={`p-1 text-center rounded border transition ${
+                        digitalTwinScale === sc 
+                          ? "bg-indigo-600/20 text-indigo-400 border-indigo-500/30" 
+                          : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      {sc === "Pilot" && t("tabPilotScale").split(" ")[0]}
+                      {sc === "State" && t("tabStateScale").split(" ")[0]}
+                      {sc === "Regional" && t("tabRegionalScale").split(" ")[0]}
+                      {sc === "National" && t("tabNationalScale").split(" ")[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* AI Engine Model Selector */}
+              <div className="space-y-2 pt-2 border-t border-slate-900">
+                <label htmlFor="model-select" className="text-[10px] uppercase font-mono tracking-widest text-slate-500 font-bold block">{t("activeModelLabel")}</label>
+                <select
+                  id="model-select"
+                  value={activeModel}
+                  onChange={(e) => setActiveModel(e.target.value as any)}
+                  className="w-full p-2 rounded bg-slate-900 border border-slate-800 text-xs text-white font-mono focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="PINN-ConvLSTM Hybrid">🧠 PINN-ConvLSTM Hybrid</option>
+                  <option value="LSTM + XGBoost Ensemble">📈 LSTM + XGBoost Ensemble</option>
+                  <option value="Empirical Runoff">🌊 Physics Empirical Runoff</option>
+                </select>
+              </div>
+
               <button 
                 onClick={runSimulation}
                 disabled={simulating}
-                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-850 text-white font-bold text-xs rounded transition flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(99,102,241,0.25)]"
+                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white font-bold text-xs rounded transition flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(99,102,241,0.25)]"
                 aria-label="Run projections and simulate Digital Twin state"
               >
-                {simulating ? "Simulating Digital Twin State..." : "⚡ Run Projections"}
+                {simulating ? t("simulating") : t("runSimulation")}
               </button>
             </div>
 
             {/* Model Monitoring panel inside Panel 1 */}
             <div className="pt-4 border-t border-slate-800/80 space-y-2 text-xs">
-              <span className="text-[10px] uppercase font-mono tracking-widest text-slate-500">📈 TELEMETRY DRIFT AUDIT</span>
+              <span className="text-[10px] uppercase font-mono tracking-widest text-slate-500">{t("telemetryDriftAudit")}</span>
               <div className="flex justify-between text-slate-300 mt-2">
-                <span>Model Accuracy:</span>
+                <span>{t("modelAccuracy")}:</span>
                 <span className="font-mono text-emerald-400 font-semibold">{accuracy}%</span>
               </div>
               <div className="flex justify-between text-slate-300">
-                <span>Prediction Drift:</span>
+                <span>{t("predictionDrift")}:</span>
                 <span className="font-mono text-amber-400 font-semibold">{drift}%</span>
               </div>
               <div className="flex justify-between text-slate-300">
-                <span>Target Region:</span>
+                <span>{t("targetRegionLabel")}:</span>
                 <span className="font-mono text-indigo-400">{selectedDistrict}</span>
               </div>
               <button 
@@ -871,7 +1637,7 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                 className="w-full text-center mt-2 text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 py-1 rounded transition border border-slate-800 font-semibold"
                 aria-label="Inspect performance metrics detailed window"
               >
-                Inspect Performance Specs →
+                {t("inspectSpecs")}
               </button>
             </div>
           </section>
@@ -882,7 +1648,7 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
             {/* Timeline Selector Header */}
             <div className="bg-slate-950 p-3 border-b border-slate-800/60 flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Temporal Timeline</span>
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{t("temporalTimeline")}</span>
                 <span className="text-xs bg-indigo-950 text-indigo-300 border border-indigo-800 px-2.5 py-0.5 rounded font-mono font-bold">
                   {getTimelineLabel(timelineStep)}
                 </span>
@@ -901,11 +1667,11 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                 />
               </div>
               <div className="flex justify-between text-[9px] font-mono text-slate-500">
-                <span>PAST</span>
-                <span>CURRENT</span>
-                <span>24H FORECAST</span>
-                <span>48H FORECAST</span>
-                <span>SCENARIO</span>
+                <span>{t("lblPast")}</span>
+                <span>{t("lblCurrent")}</span>
+                <span>{t("lbl24h")}</span>
+                <span>{t("lbl48h")}</span>
+                <span>{t("lblScenario")}</span>
               </div>
             </div>
 
@@ -918,37 +1684,89 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                   onClick={() => setMapType("styled")}
                   className={`px-2 py-1 rounded transition-colors ${mapType === "styled" ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:text-white"}`}
                 >
-                  🌌 STYLED
+                  {t("styled")}
                 </button>
                 <button 
                   onClick={() => setMapType("satellite")}
                   className={`px-2 py-1 rounded transition-colors ${mapType === "satellite" ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:text-white"}`}
                 >
-                  🛰️ SATELLITE
+                  {t("satellite")}
                 </button>
                 <button 
                   onClick={() => setMapType("terrain")}
                   className={`px-2 py-1 rounded transition-colors ${mapType === "terrain" ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:text-white"}`}
                 >
-                  ⛰️ TERRAIN
+                  {t("terrain")}
+                </button>
+                <button 
+                  onClick={() => setMapType("globe")}
+                  className={`px-2 py-1 rounded transition-colors ${mapType === "globe" ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:text-white"}`}
+                >
+                  {t("globeViewLabel")}
                 </button>
               </div>
 
+              {/* Search Bar Overlay - Top Left */}
+              <div className="absolute top-3 left-12 z-[1000] flex items-center gap-1.5 max-w-[240px] sm:max-w-[300px]">
+                <form onSubmit={handleLocationSearch} className="flex bg-indigo-950/75 border border-indigo-500/30 p-1 rounded-lg shadow-[0_0_15px_rgba(99,102,241,0.2)] focus-within:border-indigo-500 focus-within:shadow-[0_0_20px_rgba(99,102,241,0.35)] transition-all duration-300 backdrop-blur-md w-full">
+                  <input
+                    type="text"
+                    placeholder={t("searchPlaceholder")}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-transparent text-indigo-100 text-xs px-2.5 py-1 w-full focus:outline-none placeholder-indigo-300/50 font-mono"
+                    disabled={searchLoading}
+                  />
+                  <button
+                    type="submit"
+                    className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white px-2.5 py-1 rounded text-xs transition-colors flex items-center justify-center font-mono font-bold"
+                    disabled={searchLoading}
+                  >
+                    {searchLoading ? (
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    ) : (
+                      "🔍"
+                    )}
+                  </button>
+                </form>
+              </div>
+
               {/* Leaflet Map Div */}
-              <div id="map-container" className="w-full h-full min-h-[400px] z-0"></div>
+              {!mapReady && mapType !== "globe" && (
+                <div className="absolute inset-0 bg-slate-950/90 z-[1001] flex flex-col items-center justify-center gap-3">
+                  <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs text-slate-400 font-mono">{t("syncingNavic")}</span>
+                </div>
+              )}
+              <div 
+                id="map-container" 
+                className="w-full h-full min-h-[400px] z-0"
+                style={{ display: mapType === "globe" ? "none" : "block" }}
+              ></div>
+
+              {mapType === "globe" && (
+                <div className="w-full h-full min-h-[400px] z-0">
+                  <Globe 
+                    selectedDistrict={selectedDistrict}
+                    onSelectDistrict={setSelectedDistrict}
+                    isDarkMode={isDarkMode}
+                    districtsList={districtsList}
+                  />
+                </div>
+              )}
 
               {/* Dynamic Bottom Legend overlay */}
-              <div className="absolute bottom-3 left-3 right-3 z-[1000] bg-slate-950/85 border border-slate-850 p-2.5 rounded-lg shadow-md flex items-center justify-between text-xs backdrop-blur-sm">
+              <div className="absolute bottom-3 left-3 right-3 z-[1000] bg-slate-950/85 border border-slate-800 p-2.5 rounded-lg shadow-md flex items-center justify-between text-xs backdrop-blur-sm">
                 <div className="flex items-center gap-1.5 text-slate-300">
-                  <span className="font-semibold text-white">Active Focus: {selectedDistrict}</span>
+                  <span className="font-semibold text-white">{t("activeFocus")}: {selectedDistrict}</span>
                   <span className="text-[10px] bg-slate-900 border border-slate-800 text-indigo-400 px-1.5 py-0.5 rounded font-mono">
-                    Lat/Lng Telemetry
+                    {t("latLngTelemetry")}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-[10px] text-slate-400">
-                  <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#10b981]"></span> Normal</div>
-                  <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#f59e0b]"></span> Elevated</div>
-                  <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ef4444]"></span> Critical</div>
+                  <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#10b981]"></span> {t("normal")}</div>
+                  <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#f59e0b]"></span> {t("elevated")}</div>
+                  <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ef4444]"></span> {t("critical")}</div>
                 </div>
               </div>
 
@@ -960,37 +1778,44 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
             
             {/* Risk scores */}
             <div>
-              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">📊 CLIMATE RISK MATRIX</h2>
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("climateRiskMatrix")}</h2>
               <div className="mt-3 space-y-2">
                 <div className="flex justify-between items-center text-xs">
-                  <span>Midnight Flood Risk:</span>
+                  <span>{t("midnightFloodRisk")}</span>
                   <span className={`font-mono font-bold`} style={{ color: getRiskColor(floodRisk) }}>{floodRisk}/100</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span>Heatwave Risk:</span>
+                  <span>{t("heatwaveRiskLabel")}</span>
                   <span className="font-mono font-bold" style={{ color: getRiskColor(heatwaveRisk) }}>{heatwaveRisk}/100</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span>Drought Risk:</span>
+                  <span>{t("droughtRiskLabel")}</span>
                   <span className="font-mono font-bold" style={{ color: getRiskColor(droughtRisk) }}>{droughtRisk}/100</span>
                 </div>
                 <div className="pt-2 flex justify-between items-center border-t border-slate-800/80 text-xs font-bold">
-                  <span>Overall Risk Level:</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: `${getRiskColor(floodRisk)}20`, color: getRiskColor(floodRisk), border: `1px solid ${getRiskColor(floodRisk)}30` }}>
-                    {floodRisk > 75 ? "CRITICAL ALERT" : "ELEVATED WARNING"}
-                  </span>
+                  <span>{t("overallRiskLevel")}</span>
+                  {(() => {
+                    const maxRisk = Math.max(floodRisk, heatwaveRisk, droughtRisk);
+                    const color = getRiskColor(maxRisk);
+                    const label = maxRisk > 75 ? t("lblCriticalAlert") : maxRisk > 50 ? t("lblElevatedWarning") : t("lblNormal");
+                    return (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: `${color}20`, color: color, border: `1px solid ${color}30` }}>
+                        {label}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
 
             {/* Explainable AI (XAI) widget */}
             <div>
-              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🧠 EXPLAINABLE AI (XAI)</h2>
-              <p className="text-[10px] text-slate-500 mt-1 font-sans">Feature contribution weightings for rainfall prediction (SHAP):</p>
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("xaiLink")}</h2>
+              <p className="text-[10px] text-slate-500 mt-1 font-sans">{t("xaiDesc")}</p>
               <div className="mt-3 space-y-2 text-xs font-mono">
                 <div className="space-y-1">
                   <div className="flex justify-between text-[10px] text-slate-300">
-                    <span>SST Anomaly</span>
+                    <span>{t("sstAnomalyLabel")}</span>
                     <span>{sstWeight}%</span>
                   </div>
                   <div className="w-full bg-slate-900 h-1.5 rounded">
@@ -999,7 +1824,7 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                 </div>
                 <div className="space-y-1">
                   <div className="flex justify-between text-[10px] text-slate-300">
-                    <span>Humidity</span>
+                    <span>{t("humidityLabel")}</span>
                     <span>{humidityWeight}%</span>
                   </div>
                   <div className="w-full bg-slate-900 h-1.5 rounded">
@@ -1008,7 +1833,7 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                 </div>
                 <div className="space-y-1">
                   <div className="flex justify-between text-[10px] text-slate-300">
-                    <span>Wind Vectors</span>
+                    <span>{t("windVectorsLabel")}</span>
                     <span>{windWeight}%</span>
                   </div>
                   <div className="w-full bg-slate-900 h-1.5 rounded">
@@ -1021,39 +1846,132 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                 className="w-full text-center mt-3 text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 py-1 rounded transition border border-slate-800 font-semibold"
                 aria-label="Interpret prediction models detailed window"
               >
-                Interpret attribution graphs →
+                {t("interpretAttribution")}
               </button>
             </div>
 
             {/* Decision Support advisories */}
             <div>
-              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">📋 DECISION ENGINE ADVISORY</h2>
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("decisionEngine")}</h2>
               <ul className="mt-2 text-[11px] text-slate-400 space-y-2">
                 <li className="flex gap-2">
                   <span className="text-indigo-400 font-bold" aria-hidden="true">✔</span>
-                  <span>Initiate drainage gate operations on Godavari canals.</span>
+                  <span>{t("advisory1")}</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-indigo-400 font-bold" aria-hidden="true">✔</span>
-                  <span>Dispatch early flood warning alerts to farmers via SMS grids.</span>
+                  <span>{t("advisory2")}</span>
                 </li>
               </ul>
             </div>
+
+            {/* Professional Climate Summary */}
+            <div className="mt-4 pt-4 border-t border-slate-800/60">
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("professionalSummary")}</h2>
+              <div className="mt-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 text-[11px] space-y-2.5">
+                <div className="grid grid-cols-2 gap-2 text-[10px] font-mono border-b border-slate-800/40 pb-2 text-slate-400">
+                  <div>{t("zone")}: <span className="text-white font-sans font-semibold">{t(distInfo.zone)}</span></div>
+                  <div>{t("soil")}: <span className="text-white font-sans font-semibold">{t(distInfo.soil)}</span></div>
+                  <div className="col-span-2">{t("basin")}: <span className="text-white font-sans font-semibold">{t(distInfo.basin)}</span></div>
+                  <div className="col-span-2">{t("soilPerm")}: <span className="text-indigo-400 font-sans font-semibold">{distInfo.coeff > 0.6 ? t("lowInf") + " (C=" + distInfo.coeff + ")" : t("highInf") + " (C=" + distInfo.coeff + ")"}</span></div>
+                </div>
+                <div className="space-y-1.5 leading-relaxed text-slate-300">
+                  <p>
+                    <span className="font-semibold text-indigo-300">{t("hydroStatus")}:</span> {floodStateText}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-indigo-300">{t("thermalProfile")}:</span> {heatStateText}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-indigo-300">{t("agriRisk")}:</span> {droughtStateText}
+                  </p>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
+
+        {/* Live-Streaming Sensor Ingestion Monitor */}
+        <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-5 shadow-[0_0_15px_rgba(59,130,246,0.05)] text-slate-200 mt-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-3 mb-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400">
+                {t("ingestionMonitorTitle")}
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className={`relative flex h-2 w-2 ${isStreaming ? "" : "hidden"}`}>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className={`h-2 w-2 rounded-full bg-slate-500 ${isStreaming ? "hidden" : ""}`}></span>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                  {isStreaming ? "LIVE FEED" : "PAUSED"}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsStreaming(!isStreaming)}
+                className="bg-slate-900 hover:bg-[#134074] border border-slate-800 text-slate-300 hover:text-white px-2.5 py-1 rounded text-[10px] font-mono transition"
+              >
+                {isStreaming ? "⏸️ PAUSE" : "▶️ RESUME"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTelemetryLogs([])}
+                className="bg-slate-900 hover:bg-red-950/30 border border-slate-800 hover:border-red-900/50 text-slate-300 hover:text-red-400 px-2.5 py-1 rounded text-[10px] font-mono transition"
+              >
+                🗑️ CLEAR
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-slate-950/90 border border-slate-900 rounded-lg p-4 font-mono text-[11px] overflow-y-auto max-h-[180px] h-[180px] space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
+            {telemetryLogs.length === 0 ? (
+              <div className="text-slate-600 italic text-center py-12">No telemetry packets received. Activate feed to stream.</div>
+            ) : (
+              telemetryLogs.map((log) => {
+                let srcColor = "text-slate-400";
+                if (log.source === "MOSDAC") srcColor = "text-orange-400";
+                else if (log.source === "NavIC") srcColor = "text-cyan-400";
+                else if (log.source === "IMD-GFS") srcColor = "text-yellow-400";
+                else if (log.source === "ERA5") srcColor = "text-emerald-400";
+                else if (log.source === "AI-Engine") srcColor = "text-purple-400";
+                else if (log.source === "System") srcColor = "text-rose-400 bg-rose-950/20 px-1 rounded";
+                else if (log.source === "GIS-Projection") srcColor = "text-violet-400";
+
+                let lvlColor = "text-slate-400";
+                if (log.level === "INGEST") lvlColor = "text-orange-500 font-bold";
+                else if (log.level === "SUCCESS") lvlColor = "text-emerald-500 font-bold";
+                else if (log.level === "WARNING") lvlColor = "text-amber-500 font-bold animate-pulse";
+
+                return (
+                  <div key={log.id} className="flex items-start gap-2 hover:bg-slate-900/40 p-0.5 rounded transition">
+                    <span className="text-slate-600">[{log.time}]</span>
+                    <span className={`font-bold ${srcColor}`}>[{log.source}]</span>
+                    <span className={lvlColor}>[{log.level}]</span>
+                    <span className="text-slate-300">{renderLogMessage(log)}</span>
+                  </div>
+                );
+              })
+            )}
+            <div ref={logEndRef} />
+          </div>
+        </section>
       </main>
 
       {/* ------------------ MODAL 1: EXPLAINABLE AI (XAI) ------------------ */}
       {xaiModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="xai-modal-title">
-          <div className="bg-slate-950 border border-slate-800 rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="xai-modal-title" onClick={() => setXaiModalOpen(false)}>
+          <div className="bg-slate-950 border border-slate-800 rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             {/* Modal Header */}
             <div className="bg-[#0b1329] px-5 py-4 flex items-center justify-between text-white border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <span className="text-lg" aria-hidden="true">🧠</span>
                 <div>
-                  <h3 id="xai-modal-title" className="font-bold text-base">Explainable AI (XAI) Diagnostic Center</h3>
-                  <p className="text-[10px] text-slate-400 font-mono">SHAP (SHapley Additive exPlanations) Model Attribution Values</p>
+                  <h3 id="xai-modal-title" className="font-bold text-base">{t("xaiModalTitle")}</h3>
+                  <p className="text-[10px] text-slate-400 font-mono">{t("xaiModalSubtitle")}</p>
                 </div>
               </div>
               <button 
@@ -1067,15 +1985,29 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
             {/* Modal Content */}
             <div className="p-6 space-y-6 text-sm text-slate-300">
               <div>
-                <span className="text-xs uppercase font-mono tracking-widest text-slate-500">Live Space attributions</span>
-                <p className="text-xs mt-1"> Attributions reflect how inputs push the ConvLSTM model output away from the base value to predict a <span className="text-red-400 font-bold">142mm rainfall anomaly</span>.</p>
+                <span className="text-xs uppercase font-mono tracking-widest text-slate-500">{t("liveSpaceAttributions")}</span>
+                <p className="text-xs mt-1">
+                  {(() => {
+                    const parts = t("xaiModalDesc").split("{rainAnomaly}mm");
+                    if (parts.length === 2) {
+                      return (
+                        <>
+                          {parts[0]}
+                          <span className="text-red-400 font-bold">142mm {t("rainfallAnomalyText")}</span>
+                          {parts[1].replace("rainfall anomaly", "")}
+                        </>
+                      );
+                    }
+                    return t("xaiModalDesc").replace("{rainAnomaly}", "142");
+                  })()}
+                </p>
               </div>
 
               {/* SHAP Bars inside Modal */}
               <div className="space-y-4 font-mono text-xs">
                 <div className="space-y-1">
                   <div className="flex justify-between text-slate-200">
-                    <span>INSAT Sea Surface Temperature (SST) Anomaly</span>
+                    <span>{t("insatSstAnomaly")}</span>
                     <span className="text-indigo-400 font-bold">+{sstWeight}%</span>
                   </div>
                   <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden">
@@ -1085,7 +2017,7 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
 
                 <div className="space-y-1">
                   <div className="flex justify-between text-slate-200">
-                    <span>Atmospheric Moisture & Gridded Relative Humidity</span>
+                    <span>{t("griddedRelativeHumidity")}</span>
                     <span className="text-indigo-400 font-bold">+{humidityWeight}%</span>
                   </div>
                   <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden">
@@ -1095,7 +2027,7 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
 
                 <div className="space-y-1">
                   <div className="flex justify-between text-slate-200">
-                    <span>Spatio-Temporal Monsoon Wind Vectors</span>
+                    <span>{t("monsoonWindVectors")}</span>
                     <span className="text-indigo-400 font-bold">+{windWeight}%</span>
                   </div>
                   <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden">
@@ -1105,8 +2037,15 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
               </div>
 
               <div className="bg-slate-900 p-4 rounded border border-slate-800 text-xs leading-relaxed">
-                <strong className="text-slate-200 block mb-1">💡 Diagnostic Insight:</strong>
-                SST Anomaly stands at <strong className="text-white">+{tempRise}°C</strong> above base climate variables, contributing the highest positive attribution of <strong className="text-indigo-400">{sstWeight}%</strong>. High SST acts as a thermodynamic fuel, evaporating heavy moisture grids which are pushed into {selectedDistrict} by wind vector vectors, explaining the predicted flood probability of <strong className="text-red-400 font-bold">{floodRisk}%</strong>.
+                <strong className="text-slate-200 block mb-1">{t("diagnosticInsightLabel")}</strong>
+                {(() => {
+                  const text = t("xaiInsightText")
+                    .replace("{tempRise}", tempRise.toString())
+                    .replace("{sstWeight}", sstWeight.toString())
+                    .replace("{district}", selectedDistrict)
+                    .replace("{floodRisk}", floodRisk.toString());
+                  return <span>{text}</span>;
+                })()}
               </div>
             </div>
             {/* Modal Footer */}
@@ -1116,7 +2055,7 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                 className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2 rounded transition"
                 aria-label="Close dialog"
               >
-                Close Diagnostic Panel
+                {t("closeDiagnosticPanel")}
               </button>
             </div>
           </div>
@@ -1125,15 +2064,15 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
 
       {/* ------------------ MODAL 2: MODEL METRICS ------------------ */}
       {metricsModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="metrics-modal-title">
-          <div className="bg-slate-950 border border-slate-800 rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="metrics-modal-title" onClick={() => setMetricsModalOpen(false)}>
+          <div className="bg-slate-950 border border-slate-800 rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             {/* Modal Header */}
             <div className="bg-[#0b1329] px-5 py-4 flex items-center justify-between text-white border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <span className="text-lg" aria-hidden="true">📈</span>
                 <div>
-                  <h3 id="metrics-modal-title" className="font-bold text-base">Model Quality & Performance Specifications</h3>
-                  <p className="text-[10px] text-slate-400 font-mono">Live telemetry of AI model training configurations and test audits</p>
+                  <h3 id="metrics-modal-title" className="font-bold text-base">{t("metricsModalTitle")}</h3>
+                  <p className="text-[10px] text-slate-400 font-mono">{t("metricsModalSubtitle")}</p>
                 </div>
               </div>
               <button 
@@ -1150,45 +2089,45 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
               {/* Primary metrics grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="bg-slate-900 border border-slate-800 p-3 rounded text-center">
-                  <span className="text-[10px] text-slate-500 uppercase font-mono">Accuracy</span>
+                  <span className="text-[10px] text-slate-500 uppercase font-mono">{t("modelAccuracy")}</span>
                   <p className="text-lg font-bold text-emerald-400 mt-1">{accuracy}%</p>
                 </div>
                 <div className="bg-slate-900 border border-slate-800 p-3 rounded text-center">
-                  <span className="text-[10px] text-slate-500 uppercase font-mono">F1-Score</span>
+                  <span className="text-[10px] text-slate-500 uppercase font-mono">{t("f1ScoreLabel")}</span>
                   <p className="text-lg font-bold text-slate-200 mt-1">0.91</p>
                 </div>
                 <div className="bg-slate-900 border border-slate-800 p-3 rounded text-center">
-                  <span className="text-[10px] text-slate-500 uppercase font-mono">Data Drift</span>
+                  <span className="text-[10px] text-slate-500 uppercase font-mono">{t("dataDriftLabel")}</span>
                   <p className="text-lg font-bold text-amber-500 mt-1">{drift}%</p>
                 </div>
                 <div className="bg-slate-900 border border-slate-800 p-3 rounded text-center">
-                  <span className="text-[10px] text-slate-500 uppercase font-mono">KS-Test</span>
-                  <p className="text-lg font-bold text-emerald-400 mt-1">PASSED</p>
+                  <span className="text-[10px] text-slate-500 uppercase font-mono">{t("ksTestLabel")}</span>
+                  <p className="text-lg font-bold text-emerald-400 mt-1">{t("passed")}</p>
                 </div>
               </div>
 
               {/* Confusion Matrix Table */}
               <div className="space-y-2">
-                <span className="text-xs uppercase font-mono tracking-widest text-slate-500">Confusion Matrix (Validation Audit)</span>
+                <span className="text-xs uppercase font-mono tracking-widest text-slate-500">{t("confusionMatrixTitle")}</span>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs font-mono border-collapse border border-slate-800">
                     <thead>
                       <tr className="bg-slate-900 border-b border-slate-800">
-                        <th className="py-2 px-3 text-slate-400 font-semibold">Metric Type</th>
-                        <th className="py-2 px-3 text-slate-200 font-semibold">Predicted Alert</th>
-                        <th className="py-2 px-3 text-slate-200 font-semibold">Predicted Normal</th>
+                        <th className="py-2 px-3 text-slate-400 font-semibold">{t("metricTypeHeader")}</th>
+                        <th className="py-2 px-3 text-slate-200 font-semibold">{t("predictedAlertHeader")}</th>
+                        <th className="py-2 px-3 text-slate-200 font-semibold">{t("predictedNormalHeader")}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-850/50">
+                    <tbody className="divide-y divide-slate-800/50">
                       <tr>
-                        <td className="py-2 px-3 font-semibold text-slate-400 bg-slate-900/50">True Alert</td>
-                        <td className="py-2 px-3 text-emerald-400 font-bold">412 (True Pos)</td>
-                        <td className="py-2 px-3 text-red-400">49 (False Neg)</td>
+                        <td className="py-2 px-3 font-semibold text-slate-400 bg-slate-900/50">{t("trueAlertLabel")}</td>
+                        <td className="py-2 px-3 text-emerald-400 font-bold">412 ({t("truePosText")})</td>
+                        <td className="py-2 px-3 text-red-400">49 ({t("falseNegText")})</td>
                       </tr>
                       <tr>
-                        <td className="py-2 px-3 font-semibold text-slate-400 bg-slate-900/50">True Normal</td>
-                        <td className="py-2 px-3 text-red-400">31 (False Pos)</td>
-                        <td className="py-2 px-3 text-emerald-400 font-bold">894 (True Neg)</td>
+                        <td className="py-2 px-3 font-semibold text-slate-400 bg-slate-900/50">{t("trueNormalLabel")}</td>
+                        <td className="py-2 px-3 text-red-400">31 ({t("falsePosText")})</td>
+                        <td className="py-2 px-3 text-emerald-400 font-bold">894 ({t("trueNegText")})</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1197,10 +2136,10 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
 
               {/* Dataset details */}
               <div className="bg-slate-900 p-4 rounded border border-slate-800 text-xs space-y-1.5 leading-relaxed">
-                <strong className="text-slate-200 block">📊 Ingested Training Dataset Information:</strong>
-                <div>• <strong className="text-white">Spatial Resolution:</strong> 0.25° × 0.25° IMD gridded interpolation matrices fused with INSAT-3D LST/SST grids.</div>
-                <div>• <strong className="text-white">Temporal Range:</strong> 15 Years of historical archives (January 2010 to December 2025).</div>
-                <div>• <strong className="text-white">Validation Method:</strong> K-fold Cross Validation (K=5) to ensure spatial generalization stability.</div>
+                <strong className="text-slate-200 block">{t("ingestedDatasetInfo")}</strong>
+                <div>• <strong className="text-white">{t("spatialResolution")}</strong> {t("spatialResolutionDesc")}</div>
+                <div>• <strong className="text-white">{t("temporalRange")}</strong> {t("temporalRangeDesc")}</div>
+                <div>• <strong className="text-white">{t("validationMethod")}</strong> {t("validationMethodDesc")}</div>
               </div>
             </div>
             {/* Modal Footer */}
@@ -1210,7 +2149,7 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                 className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2 rounded transition"
                 aria-label="Close dialog"
               >
-                Close Metrics Dashboard
+                {t("closeMetricsDashboard")}
               </button>
             </div>
           </div>
@@ -1219,15 +2158,15 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
 
       {/* ------------------ MODAL 3: SYSTEM DOCUMENTATION ------------------ */}
       {docsModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="docs-modal-title">
-          <div className="bg-slate-950 border border-slate-800 rounded-xl w-full max-w-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="docs-modal-title" onClick={() => setDocsModalOpen(false)}>
+          <div className="bg-slate-950 border border-slate-800 rounded-xl w-full max-w-4xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             {/* Modal Header */}
             <div className="bg-[#0b1329] px-5 py-4 flex items-center justify-between text-white border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <span className="text-lg" aria-hidden="true">ℹ️</span>
                 <div>
-                  <h3 id="docs-modal-title" className="font-bold text-base">VAYUSETU Space Twin System Documentation</h3>
-                  <p className="text-[10px] text-slate-400 font-mono">ISRO challenge details and physical hydrological modeling equations</p>
+                  <h3 id="docs-modal-title" className="font-bold text-base">{t("docsModalTitle")}</h3>
+                  <p className="text-[10px] text-slate-400 font-mono">{t("docsModalSubtitle")}</p>
                 </div>
               </div>
               <button 
@@ -1238,86 +2177,332 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
                 ✕
               </button>
             </div>
-            {/* Modal Content */}
-            <div className="p-6 space-y-5 text-xs text-slate-300 overflow-y-auto max-h-[70vh] scrollbar-thin scrollbar-thumb-slate-800">
-              
-              <div>
-                <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block mb-1">🛰️ ISRO Hackathon Context</span>
-                <p className="leading-relaxed">
-                  Developed for the **ISRO Bharatiya Antariksh Hackathon 2026** (Challenge 5: Spatio-Temporal Climate Digital Twin). VAYUSETU ingests meteorological grids directly from **MOSDAC** and **INSAT-3D** sensors, running predictive deep learning networks (ConvLSTM) and physical hydrological models to issue early warning alerts for Coastal Andhra Pradesh.
-                </p>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-y border-slate-900 py-4 my-2">
-                <div>
-                  <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block mb-1">🌊 Hydrology Runoff formula</span>
-                  <p className="leading-relaxed mb-2">
-                    VAYUSETU simulates streamflow discharge and flood risks using the **Rational Hydrometeorological Method**:
-                  </p>
-                  <div className="bg-slate-900 p-3 rounded font-mono text-center text-slate-200 border border-slate-850">
-                    Q = C × I × A × 0.00278
-                  </div>
-                  <ul className="list-disc list-inside mt-2 space-y-1 text-slate-400">
-                    <li><strong className="text-slate-300">Q:</strong> Peak runoff discharge rate (m³/s)</li>
-                    <li><strong className="text-slate-300">C:</strong> Runoff coefficient (based on soil absorption & urbanization cover)</li>
-                    <li><strong className="text-slate-300">I:</strong> Rainfall intensity (mm/hr) based on precipitation grids</li>
-                    <li><strong className="text-slate-300">A:</strong> Catchment drainage area (hectares)</li>
-                  </ul>
-                </div>
-                
-                <div>
-                  <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block mb-1">🛰️ Ingested Satellite Telemetry</span>
-                  <ul className="space-y-2 text-slate-400 mt-1">
-                    <li>
-                      <strong className="text-slate-300">INSAT-3D SST:</strong> 
-                      Sea Surface Temperature anomalies used to track thermal evaporation triggers.
-                    </li>
-                    <li>
-                      <strong className="text-slate-300">INSAT-3D LST:</strong> 
-                      Land Surface Temperature grids representing thermal radiation anomalies.
-                    </li>
-                    <li>
-                      <strong className="text-slate-300">IMD Gridded Rainfall:</strong> 
-                      0.25° × 0.25° meteorological interpolation datasets.
-                    </li>
-                    <li>
-                      <strong className="text-slate-300">NavIC Telemetry:</strong> 
-                      Provides high-precision geo-referencing for gridded GIS maps.
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <div>
-                <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block mb-1">👥 Team credits — ClimateX Labs</span>
-                <div className="grid grid-cols-2 gap-3 mt-2 font-mono text-[10px] text-slate-400">
-                  <div className="bg-slate-900/40 p-2 rounded border border-slate-850">
-                    <strong className="text-slate-300 block">Kalle Uday Bhaskar</strong>
-                    Team Lead / Geospatial Software Architect
-                  </div>
-                  <div className="bg-slate-900/40 p-2 rounded border border-slate-850">
-                    <strong className="text-slate-300 block">Deep Learning Engineer</strong>
-                    ConvLSTM Model Training & SHAP Attribution
-                  </div>
-                  <div className="bg-slate-900/40 p-2 rounded border border-slate-850">
-                    <strong className="text-slate-300 block">GIS Web Developer</strong>
-                    Interactive Leaflet GIS Mapping Node
-                  </div>
-                  <div className="bg-slate-900/40 p-2 rounded border border-slate-850">
-                    <strong className="text-slate-300 block">Data Pipeline Engineer</strong>
-                    MOSDAC netCDF File Ingestion Pipeline
-                  </div>
-                </div>
-              </div>
+            {/* Navigation Tabs */}
+            <div className="flex border-b border-slate-900 bg-slate-950/50 p-2 gap-2 text-xs font-mono overflow-x-auto">
+              <button
+                onClick={() => setDocsTab("system")}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition shrink-0 ${
+                  docsTab === "system" 
+                    ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30" 
+                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-200 border border-transparent"
+                }`}
+              >
+                🛰️ {t("docsLink").replace(/[^a-zA-Z0-9\s\u0900-\u097F\u0C00-\u0C7F\u0B80-\u0BFF\u0C80-\u0CFF]/g, '').trim()}
+              </button>
+              <button
+                onClick={() => setDocsTab("matrix")}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition shrink-0 ${
+                  docsTab === "matrix" 
+                    ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30" 
+                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-200 border border-transparent"
+                }`}
+              >
+                📊 {BENEFICIARIES_DATA[lang]?.tabTitle1 || "Impact Matrix"}
+              </button>
+              <button
+                onClick={() => setDocsTab("beforeAfter")}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition shrink-0 ${
+                  docsTab === "beforeAfter" 
+                    ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30" 
+                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-200 border border-transparent"
+                }`}
+              >
+                ⚖️ {BENEFICIARIES_DATA[lang]?.tabTitle2 || "Before vs After"}
+              </button>
+              <button
+                onClick={() => setDocsTab("priority")}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition shrink-0 ${
+                  docsTab === "priority" 
+                    ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30" 
+                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-200 border border-transparent"
+                }`}
+              >
+                ⭐ {BENEFICIARIES_DATA[lang]?.tabTitle3 || "Prioritization"}
+              </button>
             </div>
+
+            {/* Modal Content */}
+            <div className="p-6 text-xs text-slate-300 overflow-y-auto max-h-[60vh] scrollbar-thin scrollbar-thumb-slate-800">
+              {docsTab === "system" && (
+                <div className="space-y-5">
+                  <div>
+                    <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block mb-1">{t("isroHackathonContext")}</span>
+                    <p className="leading-relaxed">
+                      {parseBoldText(t("isroHackathonText"))}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-y border-slate-900 py-4 my-2">
+                    <div>
+                      <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block mb-1">{t("hydrologyRunoffFormula")}</span>
+                      <p className="leading-relaxed mb-2">
+                        {parseBoldText(t("hydrologyRunoffText"))}
+                      </p>
+                      <div className="bg-slate-900 p-3 rounded font-mono text-center text-slate-200 border border-slate-800">
+                        Q = C × I × A × 0.00278
+                      </div>
+                      <ul className="list-disc list-inside mt-2 space-y-1 text-slate-400">
+                        <li><strong className="text-slate-300">Q:</strong> {t("qDesc")}</li>
+                        <li><strong className="text-slate-300">C:</strong> {t("cDesc")}</li>
+                        <li><strong className="text-slate-300">I:</strong> {t("iDesc")}</li>
+                        <li><strong className="text-slate-300">A:</strong> {t("aDesc")}</li>
+                      </ul>
+                    </div>
+                    
+                    <div>
+                      <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block mb-1">{t("ingestedSatelliteTelemetry")}</span>
+                      <ul className="space-y-2 text-slate-400 mt-1">
+                        {[
+                          "insatSstBullet",
+                          "insatLstBullet",
+                          "imdGriddedRainfallBullet",
+                          "navicTelemetryBullet"
+                        ].map((key) => {
+                          const text = t(key);
+                          const colonIdx = text.indexOf(":");
+                          if (colonIdx !== -1) {
+                            const label = text.substring(0, colonIdx);
+                            const desc = text.substring(colonIdx + 1);
+                            return (
+                              <li key={key}>
+                                <strong className="text-slate-300">{label}:</strong>{desc}
+                              </li>
+                            );
+                          }
+                          return <li key={key}>{text}</li>;
+                        })}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block mb-1">{t("teamCreditsTitle")}</span>
+                    <div className="grid grid-cols-2 gap-3 mt-2 font-mono text-[10px] text-slate-400">
+                      <div className="bg-slate-900/40 p-2 rounded border border-slate-800">
+                        <strong className="text-slate-300 block">{t("teamMember1Name")}</strong>
+                        {t("teamMember1Role")}
+                      </div>
+                      <div className="bg-slate-900/40 p-2 rounded border border-slate-800">
+                        <strong className="text-slate-300 block">{t("teamMember2Name")}</strong>
+                        {t("teamMember2Role")}
+                      </div>
+                      <div className="bg-slate-900/40 p-2 rounded border border-slate-800">
+                        <strong className="text-slate-300 block">{t("teamMember3Name")}</strong>
+                        {t("teamMember3Role")}
+                      </div>
+                      <div className="bg-slate-900/40 p-2 rounded border border-slate-800">
+                        <strong className="text-slate-300 block">{t("teamMember4Name")}</strong>
+                        {t("teamMember4Role")}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {docsTab === "matrix" && (
+                <div className="space-y-4">
+                  <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block mb-1">
+                    {BENEFICIARIES_DATA[lang]?.title || "Detailed Beneficiary Comparison"}
+                  </span>
+                  <div className="overflow-x-auto border border-slate-800/60 rounded-lg max-h-[50vh] scrollbar-thin scrollbar-thumb-slate-800">
+                    <table className="w-full text-[10px] font-mono text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#0b1329] text-indigo-400 border-b border-slate-800 sticky top-0">
+                          <th className="p-2 border-r border-slate-800 min-w-[100px]">{BENEFICIARIES_DATA[lang]?.colBeneficiary}</th>
+                          <th className="p-2 border-r border-slate-800 min-w-[150px]">{BENEFICIARIES_DATA[lang]?.colChallenges}</th>
+                          <th className="p-2 border-r border-slate-800 min-w-[200px]">{BENEFICIARIES_DATA[lang]?.colHelps}</th>
+                          <th className="p-2 border-r border-slate-800 min-w-[150px]">{BENEFICIARIES_DATA[lang]?.colBenefits}</th>
+                          <th className="p-2 min-w-[150px]">{BENEFICIARIES_DATA[lang]?.colImpact}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-900 bg-slate-950/20">
+                        {(BENEFICIARIES_DATA[lang]?.beneficiaries || BENEFICIARIES_DATA.en.beneficiaries).map((b, idx) => (
+                          <tr key={idx} className="hover:bg-slate-900/50 transition">
+                            <td className="p-2 border-r border-slate-800 font-bold text-slate-200">{b.name}</td>
+                            <td className="p-2 border-r border-slate-800 text-slate-400">{b.challenges}</td>
+                            <td className="p-2 border-r border-slate-800 text-slate-300">{b.helps}</td>
+                            <td className="p-2 border-r border-slate-800 text-emerald-400/90">{b.benefits}</td>
+                            <td className="p-2 text-indigo-400">{b.impact}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {docsTab === "beforeAfter" && (
+                <div className="space-y-4">
+                  <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block mb-1">
+                    {BENEFICIARIES_DATA[lang]?.beforeAfterTitle || "Before vs After Digital Twin"}
+                  </span>
+                  <div className="overflow-x-auto border border-slate-800/60 rounded-lg">
+                    <table className="w-full text-[10px] font-mono text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#0b1329] text-indigo-400 border-b border-slate-800">
+                          <th className="p-2 border-r border-slate-800 min-w-[120px]">{BENEFICIARIES_DATA[lang]?.colAspect}</th>
+                          <th className="p-2 border-r border-slate-800 min-w-[200px] text-red-400/80">{BENEFICIARIES_DATA[lang]?.colTraditional}</th>
+                          <th className="p-2 min-w-[200px] text-emerald-400">{BENEFICIARIES_DATA[lang]?.colTwin}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-900 bg-slate-950/20">
+                        {(BENEFICIARIES_DATA[lang]?.beforeAfter || BENEFICIARIES_DATA.en.beforeAfter).map((ba, idx) => (
+                          <tr key={idx} className="hover:bg-slate-900/50 transition">
+                            <td className="p-2 border-r border-slate-800 font-bold text-slate-200">{ba.aspect}</td>
+                            <td className="p-2 border-r border-slate-800 text-slate-400 line-through decoration-red-950/45">{ba.traditional}</td>
+                            <td className="p-2 text-slate-300 font-semibold">{ba.twin}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {docsTab === "priority" && (
+                <div className="space-y-4">
+                  <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block mb-1">
+                    {BENEFICIARIES_DATA[lang]?.priorityTitle || "Beneficiary Prioritization Matrix"}
+                  </span>
+                  <div className="overflow-x-auto border border-slate-800/60 rounded-lg max-h-[50vh] scrollbar-thin scrollbar-thumb-slate-800">
+                    <table className="w-full text-[10px] font-mono text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#0b1329] text-indigo-400 border-b border-slate-800 sticky top-0">
+                          <th className="p-2 border-r border-slate-800 min-w-[90px]">{BENEFICIARIES_DATA[lang]?.colPriority}</th>
+                          <th className="p-2 border-r border-slate-800 min-w-[130px]">{BENEFICIARIES_DATA[lang]?.colGroup}</th>
+                          <th className="p-2 min-w-[250px]">{BENEFICIARIES_DATA[lang]?.colReason}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-900 bg-slate-950/20">
+                        {(BENEFICIARIES_DATA[lang]?.priorities || BENEFICIARIES_DATA.en.priorities).map((p, idx) => (
+                          <tr key={idx} className="hover:bg-slate-900/50 transition">
+                            <td className="p-2 border-r border-slate-800 font-bold text-amber-400">
+                              {"★".repeat(p.stars)}
+                            </td>
+                            <td className="p-2 border-r border-slate-800 font-bold text-slate-200">{p.group}</td>
+                            <td className="p-2 text-slate-400">{p.reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Modal Footer */}
             <div className="bg-slate-950 px-5 py-3 border-t border-slate-900 flex justify-end">
               <button 
                 onClick={() => setDocsModalOpen(false)}
-                className="bg-indigo-700 hover:bg-indigo-650 text-white text-xs font-semibold px-4 py-2 rounded transition"
-                aria-label="Close documentation modal"
+                className="bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-semibold px-4 py-2 rounded transition"
+                aria-label={t("closeDocumentation")}
               >
-                Close Documentation
+                {t("closeDocumentation")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------ MODAL 4: SETTINGS & ABOUT US ------------------ */}
+      {settingsModalOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4" 
+          role="dialog" 
+          aria-modal="true" 
+          aria-labelledby="settings-modal-title" 
+          onClick={() => setSettingsModalOpen(false)}
+        >
+          <div 
+            className="bg-slate-950 border border-slate-800 rounded-xl w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="bg-[#0b1329] px-5 py-4 flex items-center justify-between text-white border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-lg" aria-hidden="true">⚙️</span>
+                <div>
+                  <h3 id="settings-modal-title" className="font-bold text-base">{t("settingsTitle")}</h3>
+                  <p className="text-[10px] text-slate-400 font-mono">{t("settingsDesc")}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSettingsModalOpen(false)}
+                className="text-slate-400 hover:text-red-400 text-lg font-bold"
+                aria-label="Close settings dialog"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6 text-xs text-slate-300">
+              {/* Text scaling option */}
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block">
+                  {t("textSizeLabel")}
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["sm", "md", "lg"] as const).map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setTextSize(size)}
+                      className={`py-2 px-3 border rounded text-center font-mono font-semibold transition ${
+                        textSize === size
+                          ? "bg-indigo-950/80 text-indigo-300 border-indigo-500/40 shadow-[0_0_8px_rgba(99,102,241,0.1)]"
+                          : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-850 hover:text-slate-200"
+                      }`}
+                    >
+                      {size === "sm" ? t("textSizeSmall") : size === "lg" ? t("textSizeLarge") : t("textSizeNormal")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Layout width scaling option */}
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block">
+                  {t("layoutWidthLabel")}
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["standard", "widescreen", "full"] as const).map((width) => (
+                    <button
+                      key={width}
+                      type="button"
+                      onClick={() => setLayoutWidth(width)}
+                      className={`py-2 px-3 border rounded text-center font-mono font-semibold transition ${
+                        layoutWidth === width
+                          ? "bg-indigo-950/80 text-indigo-300 border-indigo-500/40 shadow-[0_0_8px_rgba(99,102,241,0.1)]"
+                          : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-850 hover:text-slate-200"
+                      }`}
+                    >
+                      {width === "standard" ? t("layoutStandard") : width === "full" ? t("layoutFull") : t("layoutWidescreen")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* About Us panel */}
+              <div className="bg-slate-900 p-4 rounded border border-slate-800 space-y-2 leading-relaxed">
+                <strong className="text-slate-200 block text-xs border-b border-slate-800 pb-1 font-semibold">
+                  {t("aboutUsTitle")}
+                </strong>
+                <p className="text-slate-400 font-mono text-[10px]">
+                  {t("aboutUsDesc")}
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-950 px-5 py-3 border-t border-slate-900 flex justify-end">
+              <button 
+                onClick={() => setSettingsModalOpen(false)}
+                className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2 rounded transition"
+                aria-label="Close configuration"
+              >
+                {t("closeSettings")}
               </button>
             </div>
           </div>
@@ -1331,7 +2516,7 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
           className="bg-indigo-950 hover:bg-indigo-900 text-white font-bold p-3.5 rounded-full shadow-2xl transition duration-300 flex items-center gap-2 border border-indigo-800 shadow-[0_0_15px_rgba(99,102,241,0.2)]"
           aria-label="Open AI Climate Assistant Chat"
         >
-          <span>💬</span> <span className="text-xs hidden md:inline">AI Space Assistant</span>
+          <span>💬</span> <span className="text-xs hidden md:inline">{t("chatTitle")}</span>
         </button>
       </div>
 
@@ -1342,22 +2527,25 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
             <div className="flex items-center gap-2">
               <span className="text-lg" aria-hidden="true">💬</span>
               <div>
-                <h3 className="font-bold text-sm">VAYUSETU AI Space Assistant</h3>
-                <p className="text-[9px] text-indigo-400 font-mono">Co-operative RAG Climate Node</p>
+                <h3 className="font-bold text-sm">VAYUSETU {t("chatTitle")}</h3>
+                <p className="text-[9px] text-indigo-400 font-mono">{t("chatCooperativeNode")}</p>
               </div>
             </div>
-            <button onClick={() => setAssistantOpen(false)} className="text-white hover:text-red-400 text-lg" aria-label="Close chat assistant">✕</button>
+            <button onClick={() => setAssistantOpen(false)} className="text-white hover:text-red-400 text-lg" aria-label={t("closeDocumentation")}>✕</button>
           </div>
 
           {/* Chat text area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-slate-800">
-            {chatHistory.map((msg, idx) => (
-              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`p-3 rounded-lg text-xs max-w-[85%] ${msg.role === 'user' ? 'bg-indigo-950 text-indigo-100 border border-indigo-900' : 'bg-slate-900 text-slate-200 border border-slate-800'}`}>
-                  {msg.text}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-slate-800" aria-live="polite">
+            {chatHistory.map((msg, idx) => {
+              const text = (idx === 0 && msg.role === 'assistant') ? t("chatWelcome") : msg.text;
+              return (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`p-3 rounded-lg text-xs max-w-[85%] ${msg.role === 'user' ? 'bg-indigo-950 text-indigo-100 border border-indigo-900' : 'bg-slate-900 text-slate-200 border border-slate-800'}`}>
+                    {parseMarkdown(text)}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Quick Questions Chips */}
@@ -1367,21 +2555,21 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
               onClick={() => setChatInput("Analyze Visakhapatnam flood risk")}
               className="bg-slate-900 hover:bg-[#134074] text-slate-300 hover:text-white px-2 py-1 rounded-full text-[10px] transition border border-slate-800"
             >
-              🌧️ Visakhapatnam Flood
+              {t("quickQuestion1Label")}
             </button>
             <button 
               type="button"
-              onClick={() => setChatInput("Show LST temperature drift for Nellore")}
+              onClick={() => setChatInput("Show LST temperature drift for Kochi")}
               className="bg-slate-900 hover:bg-[#134074] text-slate-300 hover:text-white px-2 py-1 rounded-full text-[10px] transition border border-slate-800"
             >
-              🔥 Nellore Heatwave
+              {t("quickQuestion2Label")}
             </button>
             <button 
               type="button"
               onClick={() => setChatInput("What is the current space-grid risk score?")}
               className="bg-slate-900 hover:bg-[#134074] text-slate-300 hover:text-white px-2 py-1 rounded-full text-[10px] transition border border-slate-800"
             >
-              📊 Aggregate Risk Scores
+              {t("quickQuestion3Label")}
             </button>
           </div>
 
@@ -1391,22 +2579,67 @@ Higher SST provides thermodynamic energy, accelerating evaporation rates.`;
               type="text" 
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder={`Ask about ${selectedDistrict} climate risk...`}
+              placeholder={t("chatPlaceholderDynamic").replace("{district}", t(selectedDistrict))}
               className="flex-1 bg-slate-900 border border-slate-800 rounded p-2 text-xs text-white focus:outline-none focus:border-indigo-500"
               aria-label="Ask a question about climate risk"
             />
             <button type="submit" className="bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded transition" aria-label="Send message">
-              Send
+              {t("chatSend")}
             </button>
           </form>
         </div>
       )}
 
+      {/* Premium Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-24 left-6 z-50 bg-indigo-950/95 border border-indigo-500/30 text-slate-100 px-4 py-3 rounded-lg shadow-2xl flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-5 duration-300">
+          <span className="text-indigo-400">⚡</span>
+          <span className="text-xs font-semibold">{toastMessage}</span>
+          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white text-xs ml-2">✕</button>
+        </div>
+      )}
+
       {/* Footer */}
       <footer className="relative z-10 border-t border-slate-900 bg-slate-950/90 py-5 px-4 text-center text-xs text-slate-500 mt-12">
-        <p>© 2026 ClimateX Labs. Developed for the ISRO Bharatiya Antariksh Hackathon.</p>
-        <p className="mt-1 font-mono text-[10px]">Operational NavIC-Fused GIS Digital Twin, fully mobile-responsive.</p>
+        <p>{t("footerCredits")}</p>
+        <p className="mt-1 font-mono text-[10px]">{t("footerStatus")}</p>
       </footer>
     </div>
   );
+}
+
+function parseMarkdown(text: string): React.ReactNode[] {
+  const lines = text.split("\n");
+  return lines.map((line, lineIdx) => {
+    let content: React.ReactNode = line;
+    
+    // Check for bullet points
+    const bulletMatch = line.match(/^-\s+\*\*(.*?)\*\*:\s*(.*)$/);
+    const simpleBulletMatch = line.match(/^-\s+(.*)$/);
+    
+    if (bulletMatch) {
+      const [, label, value] = bulletMatch;
+      content = (
+        <li className="list-none ml-2">
+          • <strong>{label}:</strong> {value}
+        </li>
+      );
+    } else if (simpleBulletMatch) {
+      const [, val] = simpleBulletMatch;
+      content = <li className="list-none ml-2">• {parseBoldText(val)}</li>;
+    } else {
+      content = parseBoldText(line);
+    }
+
+    return (
+      <div key={lineIdx} className={lineIdx > 0 ? "mt-1" : ""}>
+        {content}
+      </div>
+    );
+  });
+}
+
+function parseBoldText(text: string): React.ReactNode {
+  const parts = text.split(/\*\*([\s\S]*?)\*\*/g);
+  return parts.map((part, i) => (i % 2 === 1 ? <strong key={i} className="font-bold text-white">{part}</strong> : part));
 }

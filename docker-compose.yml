@@ -1,62 +1,78 @@
-version: '3.8'
-
 services:
   database:
     image: postgis/postgis:15-3.3
     container_name: vayusetu_postgis
     environment:
-      POSTGRES_DB: vayusetu_db
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: secure_db_password_change_me
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-vayusetu_db}
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_db_password_change_me}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-vayusetu_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - vayusetu_network
 
   cache:
     image: redis:7-alpine
     container_name: vayusetu_redis
-    ports:
-      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - vayusetu_network
 
   backend:
     build:
-      context: ./backend
-      dockerfile: ../deployment/docker/Dockerfile.backend
+      context: .
+      dockerfile: deployment/docker/Dockerfile.backend
     container_name: vayusetu_backend
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
+      - ./digital_twin:/app/digital_twin
+      - ./ai_engine:/app/ai_engine
       - ./data:/app/data
     environment:
-      - DATABASE_URL=postgresql://admin:secure_db_password_change_me@database:5432/vayusetu_db
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-secure_db_password_change_me}@database:5432/${POSTGRES_DB:-vayusetu_db}
       - REDIS_URL=redis://cache:6379/0
-      - JWT_SECRET=super_secret_jwt_key_to_be_replaced_in_prod
+      - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_to_be_replaced_in_prod}
     ports:
       - "8000:8000"
     depends_on:
-      - database
-      - cache
+      database:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - vayusetu_network
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: ../deployment/docker/Dockerfile.frontend
+      context: .
+      dockerfile: deployment/docker/Dockerfile.frontend
     container_name: vayusetu_frontend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://backend:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', (res) => { if (res.statusCode === 200) process.exit(0); else process.exit(1); })"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
     networks:
       - vayusetu_network
 
