@@ -314,3 +314,90 @@ body {
 .light-theme .bg-slate-900\/60:hover {
   background-color: #e2e8f0 !important;
 }
+
+/* ==========================================================================
+   Mobile & Responsive Styles
+   ========================================================================== */
+
+/* Prevent horizontal overflow on all screens */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Better touch targets on mobile */
+@media (max-width: 767px) {
+  button, a, select, input[type="range"] {
+    min-height: 36px;
+  }
+
+  /* Ensure map is visible and takes full width */
+  #map-container {
+    min-height: 300px !important;
+  }
+
+  /* Fix Leaflet controls on mobile */
+  .leaflet-control-zoom {
+    margin-top: 60px !important;
+  }
+
+  /* Improve slider usability on touch */
+  input[type="range"] {
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #6366f1;
+    cursor: pointer;
+  }
+
+  /* Toast notifications on mobile */
+  .fixed.bottom-24.left-6 {
+    left: 1rem !important;
+    right: 1rem !important;
+    bottom: 5rem !important;
+  }
+
+  /* Scrollbar hide on mobile for cleaner look */
+  .scrollbar-thin {
+    scrollbar-width: none;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 768px) and (max-width: 1023px) {
+  #map-container {
+    min-height: 350px !important;
+  }
+}
+
+/* Ensure smooth scrolling and no janky overscroll */
+@supports (-webkit-overflow-scrolling: touch) {
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Safe area insets for notched phones */
+@supports (padding: max(0px)) {
+  .fixed.bottom-6.right-6 {
+    bottom: max(1.5rem, env(safe-area-inset-bottom)) !important;
+    right: max(1.5rem, env(safe-area-inset-right)) !important;
+  }
+}

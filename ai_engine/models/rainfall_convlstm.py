@@ -1,11 +1,58 @@
 import torch
 import torch.nn as nn
 
+class ChannelAttention(nn.Module):
+    def __init__(self, in_planes, ratio=16):
+        super(ChannelAttention, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+           
+        reduced_planes = max(1, in_planes // ratio)
+        self.fc = nn.Sequential(
+            nn.Conv2d(in_planes, reduced_planes, 1, bias=False),
+            nn.ReLU(),
+            nn.Conv2d(reduced_planes, in_planes, 1, bias=False)
+        )
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = self.fc(self.avg_pool(x))
+        max_out = self.fc(self.max_pool(x))
+        out = avg_out + max_out
+        return self.sigmoid(out)
+
+class SpatialAttention(nn.Module):
+    def __init__(self, kernel_size=7):
+        super(SpatialAttention, self).__init__()
+        assert kernel_size in (3, 7), 'kernel size must be 3 or 7'
+        padding = 3 if kernel_size == 7 else 1
+        self.conv1 = nn.Conv2d(2, 1, kernel_size, padding=padding, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = torch.mean(x, dim=1, keepdim=True)
+        max_out, _ = torch.max(x, dim=1, keepdim=True)
+        concat = torch.cat([avg_out, max_out], dim=1)
+        out = self.conv1(concat)
+        return self.sigmoid(out)
+
+class CBAM(nn.Module):
+    def __init__(self, in_planes, ratio=16, kernel_size=7):
+        super(CBAM, self).__init__()
+        self.ca = ChannelAttention(in_planes, ratio)
+        self.sa = SpatialAttention(kernel_size)
+
+    def forward(self, x):
+        out = x * self.ca(x)
+        out = out * self.sa(out)
+        return out
+
 class ConvLSTMCell(nn.Module):
     def __init__(self, input_dim, hidden_dim, kernel_size, bias):
         """
         Initialize Convolutional LSTM Cell.
         Fuses 2D Convolutions with LSTM gates to capture spatiotemporal grid dependencies.
+        Integrates CBAM (Channel & Spatial Attention) to focus on coastal precipitation cells.
         """
         super(ConvLSTMCell, self).__init__()
         self.input_dim = input_dim
@@ -13,6 +60,9 @@ class ConvLSTMCell(nn.Module):
         self.kernel_size = kernel_size
         self.padding = kernel_size // 2
         self.bias = bias
+
+        # CBAM block applied on the concatenated inputs and hidden states
+        self.cbam = CBAM(in_planes=self.input_dim + self.hidden_dim)
 
         # Fusing all gates (input, forget, cell, output) into a single 2D Convolution layer
         self.conv = nn.Conv2d(
@@ -29,8 +79,11 @@ class ConvLSTMCell(nn.Module):
         # Concatenate input and hidden state along channel dimension
         combined = torch.cat([input_tensor, h_cur], dim=1)
         
+        # Apply CBAM attention gating
+        combined_gated = self.cbam(combined)
+        
         # Convolve combined input
-        combined_conv = self.conv(combined)
+        combined_conv = self.conv(combined_gated)
         
         # Split into gates
         cc_i, cc_f, cc_o, cc_g = torch.split(combined_conv, self.hidden_dim, dim=1)
@@ -123,3 +176,29 @@ class ConvLSTM(nn.Module):
             init_states.append(self.cell_list[i].init_hidden(batch_size, image_size))
         # Move states to correct device
         return [(h.to(device), c.to(device)) for h, c in init_states]
+
+
+class PhysicsInformedLoss(nn.Module):
+    def __init__(self, lambda_physics=0.1):
+        super(PhysicsInformedLoss, self).__init__()
+        self.lambda_physics = lambda_physics
+        self.mse = nn.MSELoss()
+
+    def forward(self, pred_rainfall, target_rainfall, soil_moisture_t, soil_moisture_t1, evaporation, runoff):
+        """
+        Calculates MSE loss with physics-informed conservation of water mass penalty.
+        pred_rainfall, target_rainfall: tensors (e.g. predictions and targets)
+        soil_moisture_t: Soil moisture at time t (current)
+        soil_moisture_t1: Soil moisture at time t-1 (previous)
+        evaporation: Evaporation at time t
+        runoff: Runoff at time t
+        """
+        base_loss = self.mse(pred_rainfall, target_rainfall)
+        
+        # Physics violation penalty: SM_t <= SM_{t-1} + Rainfall_t - Evap_t - Runoff_t
+        # So violation if SM_t > SM_{t-1} + Rainfall_t - Evap_t - Runoff_t
+        # Which is equivalent to: SM_t - (SM_{t-1} + Rainfall_t - Evap_t - Runoff_t) > 0
+        violation = soil_moisture_t - (soil_moisture_t1 + pred_rainfall - evaporation - runoff)
+        physics_penalty = torch.mean(torch.clamp(violation, min=0.0))
+        
+        return base_loss + self.lambda_physics * physics_penalty

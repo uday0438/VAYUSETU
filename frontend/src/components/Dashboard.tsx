@@ -278,6 +278,7 @@ export default function VayuSetuDashboard() {
   const [soilMoisture, setSoilMoisture] = useState(50);
   const [simulating, setSimulating] = useState(false);
   const [timelineStep, setTimelineStep] = useState(1); // 0=Past, 1=Current, 2=24h, 3=48h, 4=Scenario
+  const [timelineProjection, setTimelineProjection] = useState<any>(null);
   
   // Active selected map district
   const [selectedDistrict, setSelectedDistrict] = useState("New Delhi");
@@ -394,6 +395,65 @@ export default function VayuSetuDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
   const [customDistricts, setCustomDistricts] = useState<{ [key: string]: DistrictMetadata }>({});
+
+  // Upgraded Climate Twin states & refs
+  const [gridCells, setGridCells] = useState<any[]>([]);
+  const [activeGridLayer, setActiveGridLayer] = useState<string>("none"); 
+  const [selectedGridCell, setSelectedGridCell] = useState<any | null>(null);
+  const [radarData, setRadarData] = useState<any>(null);
+  const [hydraulicData, setHydraulicData] = useState<any>(null);
+  const [timeOffsetMins, setTimeOffsetMins] = useState<number>(0);
+  const [scenarioMetrics, setScenarioMetrics] = useState<any>({
+    heatwave_risk_shift_pct: 0,
+    flood_risk_shift_pct: 0,
+    crop_yield_shift_pct: 0,
+    water_availability_shift_pct: 0
+  });
+  const [ensembleData, setEnsembleData] = useState<any>(null);
+  const [activeAdvisories, setActiveAdvisories] = useState<any[]>([]);
+  const [xaiRainfallAttributions, setXaiRainfallAttributions] = useState<any>(null);
+  const [xaiTempAttributions, setXaiTempAttributions] = useState<any>(null);
+  const [xaiActiveTab, setXaiActiveTab] = useState<"rain" | "temp">("rain");
+  const [modelHealthData, setModelHealthData] = useState<any>({
+    model_health_pct: 96.0,
+    drift_status: "STABLE",
+    average_error_mae: 1.2,
+    ks_test_p_value: 0.52,
+    retrain_recommended: false,
+    retrains_completed: 0
+  });
+  const [kalmanGain, setKalmanGain] = useState<number>(0.35);
+  const [kalmanCovariance, setKalmanCovariance] = useState<number>(0.8);
+  const [monsoonData, setMonsoonData] = useState<any>({
+    monsoon_status: "ONSET_COMPLETED",
+    onset_date_kerala: "2026-06-01",
+    current_progression: "Active over Central & South Peninsula",
+    onset_delay_days: +2,
+    monsoonal_wind_vectors_ms: 14.8,
+    regional_indicators: {
+      south_india: "Active precipitation",
+      central_india: "Normal onset in progress",
+      north_india: "Pre-monsoon showers"
+    },
+    projected_withdrawal_start: "2026-09-18"
+  });
+  const [sectorImpactsData, setSectorImpactsData] = useState<any>({
+    agriculture: { crop_stress_pct: 12.5, status: "OPTIMAL_HEALTH" },
+    water: { reservoir_stress_pct: 35.0, evaporative_loss_index: 0.2 },
+    urban: { heat_island_risk_pct: 45.0, microclimate_temp_offset_c: 1.2 },
+    disaster: { flood_exposure_index: 25.0, catchment_saturation_ratio: 0.4 }
+  });
+  const [vayusetuRiskData, setVayusetuRiskData] = useState<any>({
+    risk_score: 35.0,
+    level: "SAFE",
+    contributors: {
+      temperature_anomaly: 5.0,
+      precipitation_anomaly: 10.0,
+      soil_moisture_deficit: 10.0,
+      population_exposure: 10.0
+    }
+  });
+  const gridLayersRef = useRef<L.Layer[]>([]);
   const searchMarkerRef = useRef<L.CircleMarker | null>(null);
 
   // Sensor Ingestion Telemetry state
@@ -558,36 +618,188 @@ export default function VayuSetuDashboard() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Fetch live climate state and forecast on mount
+  // Fetch dynamic database telemetry, ensemble prediction, XAI attributions, and map grid cells when selectedDistrict changes
   useEffect(() => {
-    const fetchLiveStateAndForecast = async () => {
+    const fetchDistrictTwinData = async () => {
+      if (!selectedDistrict) return;
       try {
-        const liveRes = await fetch(`${API_BASE}/api/v1/climate/live-state`);
+        // 1. Fetch live telemetry from database (includes advisories and Kalman status)
+        const liveRes = await fetch(`${API_BASE}/api/v1/climate/live-state?district=${encodeURIComponent(selectedDistrict)}`);
         if (liveRes.ok) {
           const liveData = await liveRes.json();
-        }
-      } catch (err) {
-        // Safe fallback, no logs in production
-      }
-
-      try {
-        const forecastRes = await fetch(`${API_BASE}/api/v1/prediction/forecast`);
-        if (forecastRes.ok) {
-          const forecastData = await forecastRes.json();
-          if (forecastData.explainability?.shap_attribution) {
-            const shap = forecastData.explainability.shap_attribution;
-            setSstWeight(shap.sst_anomaly || 34);
-            setHumidityWeight(shap.humidity || 28);
-            setWindWeight(shap.wind_vectors || 38);
+          if (liveData.temperature) {
+            setFloodRisk(liveData.flood_risk || 40);
+            setHeatwaveRisk(liveData.heatwave_risk || 30);
+            setDroughtRisk(liveData.drought_risk || 20);
+            setActiveAdvisories(liveData.advisories || []);
+            setKalmanGain(liveData.kalman_gain || 0.35);
+            setKalmanCovariance(liveData.kalman_covariance || 0.8);
+            if (liveData.sector_impacts) {
+              setSectorImpactsData(liveData.sector_impacts);
+            }
+            if (liveData.vayusetu_risk_score !== undefined) {
+              setVayusetuRiskData({
+                risk_score: liveData.vayusetu_risk_score,
+                level: liveData.vayusetu_risk_level,
+                contributors: liveData.vayusetu_risk_contributors
+              });
+            }
           }
         }
       } catch (err) {
-        // Safe fallback, no logs in production
+        // Safe fallback
+      }
+
+      try {
+        // 2. Fetch multi-model ensemble forecast
+        const forecastRes = await fetch(`${API_BASE}/api/v1/prediction/forecast?district=${encodeURIComponent(selectedDistrict)}`);
+        if (forecastRes.ok) {
+          const forecastData = await forecastRes.json();
+          setEnsembleData(forecastData.forecast_horizons);
+          
+          if (forecastData.forecast_horizons?.rainfall?.models) {
+             const rf = forecastData.forecast_horizons.rainfall;
+             setSstWeight(rf.models["ConvLSTM-Precip"] ? 34 : 34); 
+          }
+        }
+      } catch (err) {
+        // Safe fallback
+      }
+
+      try {
+        // 3. Fetch grid cells for high-res GIS Grid Layer
+        const gridRes = await fetch(`${API_BASE}/api/v1/climate/grid-data?district=${encodeURIComponent(selectedDistrict)}`);
+        if (gridRes.ok) {
+          const gridData = await gridRes.json();
+          setGridCells(gridData);
+        }
+      } catch (err) {
+        // Safe fallback
+      }
+
+      try {
+        // 4. Fetch XAI explanations (Rainfall / Integrated Gradients)
+        const xaiRainRes = await fetch(`${API_BASE}/api/v1/prediction/explain?district=${encodeURIComponent(selectedDistrict)}&target=rainfall`);
+        if (xaiRainRes.ok) {
+          const xaiRainData = await xaiRainRes.json();
+          setXaiRainfallAttributions(xaiRainData);
+        }
+        
+        // 5. Fetch XAI explanations (Temperature / SHAP)
+        const xaiTempRes = await fetch(`${API_BASE}/api/v1/prediction/explain?district=${encodeURIComponent(selectedDistrict)}&target=temperature`);
+        if (xaiTempRes.ok) {
+          const xaiTempData = await xaiTempRes.json();
+          setXaiTempAttributions(xaiTempData);
+        }
+      } catch (err) {
+        // Safe fallback
+      }
+
+      try {
+        // 6. Fetch Model health and Drift statistics
+        const driftRes = await fetch(`${API_BASE}/api/v1/prediction/drift-status`);
+        if (driftRes.ok) {
+          const driftData = await driftRes.json();
+          setModelHealthData(driftData);
+          setAccuracy(driftData.model_health_pct.toString());
+          setDrift(driftData.average_error_mae.toString());
+        }
+      } catch (err) {
+        // Safe fallback
+      }
+
+      try {
+        // 7. Fetch Southwest Monsoon Tracker data
+        const monsoonRes = await fetch(`${API_BASE}/api/v1/climate/monsoon-tracker`);
+        if (monsoonRes.ok) {
+          const mData = await monsoonRes.json();
+          setMonsoonData(mData);
+        }
+      } catch (err) {
+        // Safe fallback
       }
     };
 
-    fetchLiveStateAndForecast();
-  }, [API_BASE]);
+    fetchDistrictTwinData();
+  }, [API_BASE, selectedDistrict]);
+
+  // Fetch SSP climate timeline projection when step is 1, 5, 6, 7
+  useEffect(() => {
+    const fetchTimelineProjection = async () => {
+      let yearVal = 2026;
+      if (timelineStep === 1) yearVal = 2026;
+      else if (timelineStep === 5) yearVal = 2030;
+      else if (timelineStep === 6) yearVal = 2040;
+      else if (timelineStep === 7) yearVal = 2050;
+      else {
+        setTimelineProjection(null);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/simulation/climate-timeline?year=${yearVal}`);
+        if (res.ok) {
+          const data = await res.json();
+          setTimelineProjection(data);
+          setTempRise(data.temperature_anomaly_c);
+          setPrecipitation(Math.round(data.precipitation_shift_pct));
+          const shift = Math.round(((data.co2_concentration_ppm / 418.0) - 1.0) * 100.0);
+          setCo2Shift(shift);
+        }
+      } catch (err) {
+        // Safe fallback
+      }
+    };
+
+    fetchTimelineProjection();
+  }, [timelineStep, API_BASE]);
+
+  // Radar nowcast sweep animation timer
+  useEffect(() => {
+    if (activeGridLayer !== "radar" || !isStreaming) return;
+    const interval = setInterval(() => {
+      setTimeOffsetMins((prev) => (prev + 5) % 180);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [activeGridLayer, isStreaming]);
+
+  // Fetch Radar Nowcast data from backend
+  useEffect(() => {
+    if (activeGridLayer !== "radar") return;
+    let active = true;
+    const fetchRadar = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/prediction/radar-nowcast?district=${selectedDistrict}&time_offset_mins=${timeOffsetMins}`);
+        if (res.ok && active) {
+          const data = await res.json();
+          setRadarData(data);
+        }
+      } catch (err) {
+        // Safe fallback
+      }
+    };
+    fetchRadar();
+    return () => { active = false; };
+  }, [activeGridLayer, selectedDistrict, timeOffsetMins, API_BASE]);
+
+  // Fetch Hydraulic Routing inundation data from backend
+  useEffect(() => {
+    if (activeGridLayer !== "hydraulic") return;
+    let active = true;
+    const fetchHydraulic = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/simulation/hydraulic-routing?district=${selectedDistrict}&precipitation_anomaly_pct=${precipitation}`);
+        if (res.ok && active) {
+          const data = await res.json();
+          setHydraulicData(data);
+        }
+      } catch (err) {
+        // Safe fallback
+      }
+    };
+    fetchHydraulic();
+    return () => { active = false; };
+  }, [activeGridLayer, selectedDistrict, precipitation, API_BASE]);
 
   // Update dynamic values by simulating runoff from the backend server
   useEffect(() => {
@@ -602,19 +814,20 @@ export default function VayuSetuDashboard() {
         setWindWeight(calculatedWindWeight);
 
         try {
-          const url = `${API_BASE}/api/v1/simulation/runoff?precipitation_anomaly_pct=${precipitation}&urbanization_increase_pct=${urbanization}&temp_rise_c=${tempRise}&soil_moisture_pct=${soilMoisture}`;
+          const url = `${API_BASE}/api/v1/simulation/runoff?precipitation_anomaly_pct=${precipitation}&urbanization_increase_pct=${urbanization}&temp_rise_c=${tempRise}&soil_moisture_pct=${soilMoisture}&vegetation_increase_pct=${forestShift}`;
           const res = await fetch(url);
           if (res.ok) {
             const data = await res.json();
+            if (data.scenario_studio_metrics) {
+              setScenarioMetrics(data.scenario_studio_metrics);
+            }
             if (data.district_breakdown && data.district_breakdown[selectedDistrict]) {
               const distData = data.district_breakdown[selectedDistrict];
               
-              // Recalculate with forest cover impact on runoff
               let floodCalc = distData.risk_score || 82;
               floodCalc = Math.min(100, Math.max(0, Math.round(floodCalc - (forestShift * 0.4))));
               setFloodRisk(floodCalc);
               
-              // Re-calculate temperature heatwave and drought risks based on inputs
               const distInfo = getDistrictInfo(selectedDistrict);
               const baseHeat = distInfo.baseHeat;
               const heatCalc = Math.min(100, Math.max(0, Math.round(baseHeat + (tempRise * 8) + (urbanization * 0.3) + (co2Shift * 0.2) - (forestShift * 0.3))));
@@ -624,7 +837,6 @@ export default function VayuSetuDashboard() {
               setHeatwaveRisk(heatCalc);
               setDroughtRisk(droughtCalc);
 
-              // Telemetry accuracy and drift
               const calculatedAccuracy = (92.4 - (urbanization * 0.04) + (precipitation * 0.01)).toFixed(1);
               const calculatedDrift = (1.8 + (tempRise * 0.15) + (urbanization * 0.02)).toFixed(1);
               setAccuracy(calculatedAccuracy);
@@ -633,7 +845,7 @@ export default function VayuSetuDashboard() {
             }
           }
         } catch (err) {
-          // Safe fallback, no logs in production
+          // Safe fallback
         }
 
         // CLIENT-SIDE FALLBACK CALCULATIONS:
@@ -650,6 +862,13 @@ export default function VayuSetuDashboard() {
         setFloodRisk(floodCalc);
         setHeatwaveRisk(heatCalc);
         setDroughtRisk(droughtCalc);
+
+        setScenarioMetrics({
+          heatwave_risk_shift_pct: Math.round((tempRise * 15.0) + (urbanization * 0.6) - (forestShift * 0.8)),
+          flood_risk_shift_pct: Math.round((precipitation * 0.7) + (urbanization * 0.8) - (forestShift * 0.5)),
+          crop_yield_shift_pct: Math.round((precipitation * 0.1) - (tempRise * 6.5) - (urbanization * 0.4) + (forestShift * 0.5)),
+          water_availability_shift_pct: Math.round((precipitation * 0.5) - (tempRise * 5.0) - (urbanization * 0.3))
+        });
 
         const calculatedAccuracy = (92.4 - (urbanization * 0.04) + (precipitation * 0.01)).toFixed(1);
         const calculatedDrift = (1.8 + (tempRise * 0.15) + (urbanization * 0.02)).toFixed(1);
@@ -981,6 +1200,174 @@ export default function VayuSetuDashboard() {
     });
   }, [mapReady, floodRisk, selectedDistrict, precipitation, soilMoisture, customDistricts, isDarkMode, lang]);
 
+  // Render High-Resolution Climate Grid Overlay
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+
+    // Clear previous grid layers
+    gridLayersRef.current.forEach((layer) => {
+      if (mapRef.current) {
+        mapRef.current.removeLayer(layer);
+      }
+    });
+    gridLayersRef.current = [];
+
+    if (activeGridLayer === "none" || (activeGridLayer !== "radar" && activeGridLayer !== "hydraulic" && gridCells.length === 0)) {
+      return;
+    }
+
+    const newLayers: L.Layer[] = [];
+
+    if (activeGridLayer === "radar" && radarData) {
+      const centerLatLng = radarData.radar_center as L.LatLngExpression;
+      
+      const boundaryCircle = L.circle(centerLatLng, {
+        radius: radarData.sweep_radius_km * 1000,
+        color: "#6366f1",
+        weight: 1.0,
+        dashArray: "4, 4",
+        fill: false,
+        opacity: 0.35
+      }).addTo(mapRef.current);
+      newLayers.push(boundaryCircle);
+
+      const angle = radarData.current_sweep_angle;
+      const rad = (angle * Math.PI) / 180;
+      const sweepTarget: L.LatLngExpression = [
+        centerLatLng[0] + 0.8 * Math.sin(rad),
+        centerLatLng[1] + 0.8 * Math.cos(rad)
+      ];
+      const sweepLine = L.polyline([centerLatLng, sweepTarget], {
+        color: "#10b981",
+        weight: 1.5,
+        opacity: 0.6
+      }).addTo(mapRef.current);
+      newLayers.push(sweepLine);
+
+      radarData.contours.forEach((contour: any) => {
+        const circle = L.circle(contour.center as L.LatLngExpression, {
+          radius: contour.radius_km * 1000,
+          color: contour.color,
+          weight: 1.5,
+          fillColor: contour.color,
+          fillOpacity: contour.opacity
+        }).addTo(mapRef.current);
+        
+        circle.bindTooltip(`Radar Nowcast: ${contour.dbz} dBZ (Storm Cell)`, {
+          permanent: false,
+          direction: "top"
+        });
+        newLayers.push(circle);
+      });
+
+    } else if (activeGridLayer === "hydraulic" && hydraulicData) {
+      const distInfo = getDistrictInfo(selectedDistrict);
+      const centerLat = distInfo.coords[0];
+      const centerLng = distInfo.coords[1];
+      const nx = 16;
+      const ny = 16;
+      const cellScale = 0.008;
+      const startLat = centerLat - (nx / 2) * cellScale;
+      const startLng = centerLng - (ny / 2) * cellScale;
+
+      for (let i = 0; i < nx; i++) {
+        for (let j = 0; j < ny; j++) {
+          const depth = hydraulicData.depth_grid[i][j];
+          if (depth < 0.02) continue;
+
+          const bounds: L.LatLngBoundsExpression = [
+            [startLat + i * cellScale, startLng + j * cellScale],
+            [startLat + (i + 1) * cellScale, startLng + (j + 1) * cellScale]
+          ];
+
+          const depthColor = depth > 2.0 ? "#1e3a8a" : depth > 1.0 ? "#2563eb" : depth > 0.3 ? "#3b82f6" : "#60a5fa";
+          
+          const rect = L.rectangle(bounds, {
+            color: "#3b82f6",
+            weight: 0.5,
+            fillColor: depthColor,
+            fillOpacity: 0.55
+          }).addTo(mapRef.current);
+
+          const velX = hydraulicData.velocity_x_grid[i][j];
+          const velY = hydraulicData.velocity_y_grid[i][j];
+          const velMag = Math.sqrt(velX * velX + velY * velY).toFixed(2);
+
+          rect.bindTooltip(
+            `<b>Hydraulic Inundation Grid [${i},${j}]</b><br/>
+             Water Depth: ${depth.toFixed(2)} m<br/>
+             Velocity: ${velMag} m/s`,
+            { permanent: false, sticky: true }
+          );
+          newLayers.push(rect);
+        }
+      }
+
+    } else {
+      gridCells.forEach((cell) => {
+        const bounds: L.LatLngBoundsExpression = [
+          [cell.latitude - 0.005, cell.longitude - 0.005],
+          [cell.latitude + 0.005, cell.longitude + 0.005]
+        ];
+
+        let color = "#10b981"; 
+
+        if (activeGridLayer === "rainfall") {
+          const fillVal = cell.rainfall; 
+          const pct = Math.min(100, Math.max(0, (fillVal / 150) * 100));
+          color = pct > 75 ? "#1e3a8a" : pct > 50 ? "#3b82f6" : pct > 25 ? "#60a5fa" : "#dbeafe";
+        } else if (activeGridLayer === "temperature") {
+          const fillVal = cell.temperature; 
+          const pct = Math.min(100, Math.max(0, ((fillVal - 15) / 30) * 100));
+          color = pct > 75 ? "#dc2626" : pct > 50 ? "#ea580c" : pct > 25 ? "#f97316" : "#fef08a";
+        } else if (activeGridLayer === "soil_moisture") {
+          const pct = cell.soil_moisture;
+          color = pct > 75 ? "#065f46" : pct > 50 ? "#059669" : pct > 25 ? "#34d399" : "#b45309";
+        } else if (activeGridLayer === "flood") {
+          color = getRiskColor(cell.flood_risk);
+        } else if (activeGridLayer === "drought") {
+          color = getRiskColor(cell.drought_risk);
+        } else if (activeGridLayer === "heatwave") {
+          color = getRiskColor(cell.heatwave_risk);
+        }
+
+        const rect = L.rectangle(bounds, {
+          color: isDarkMode ? "#334155" : "#94a3b8",
+          weight: 0.5,
+          fillColor: color,
+          fillOpacity: 0.45,
+        });
+
+        rect.bindTooltip(
+          `<b>Cell ${cell.cell}</b><br/>
+           Temp: ${cell.temperature}°C<br/>
+           Rainfall: ${cell.rainfall} mm<br/>
+           Soil Moisture: ${cell.soil_moisture}%<br/>
+           Flood Risk: ${cell.flood_risk}%`,
+          { permanent: false, sticky: true }
+        );
+
+        rect.on("click", () => {
+          setSelectedGridCell(cell);
+        });
+
+        rect.addTo(mapRef.current);
+        newLayers.push(rect);
+      });
+    }
+
+    gridLayersRef.current = newLayers;
+
+    return () => {
+      newLayers.forEach((layer) => {
+        if (mapRef.current) {
+          mapRef.current.removeLayer(layer);
+        }
+      });
+      gridLayersRef.current = [];
+    };
+  }, [mapReady, activeGridLayer, gridCells, isDarkMode, radarData, hydraulicData, selectedDistrict]);
+
   const runSimulation = () => {
     setSimulating(true);
     setTimeout(() => {
@@ -989,6 +1376,26 @@ export default function VayuSetuDashboard() {
       setToastMessage(t("simulationDone"));
       setTimeout(() => setToastMessage(null), 4000);
     }, 1500);
+  };
+
+  const handleRetrain = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/prediction/retrain`, { method: "POST" });
+      if (res.ok) {
+        setToastMessage("Model Retraining Initiated Successfully!");
+        setTimeout(() => setToastMessage(null), 3000);
+        
+        const driftRes = await fetch(`${API_BASE}/api/v1/prediction/drift-status`);
+        if (driftRes.ok) {
+          const driftData = await driftRes.json();
+          setModelHealthData(driftData);
+          setAccuracy(driftData.model_health_pct.toString());
+          setDrift(driftData.average_error_mae.toString());
+        }
+      }
+    } catch (err) {
+      // Safe fallback
+    }
   };
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -1110,6 +1517,9 @@ export default function VayuSetuDashboard() {
       case 2: return t("forecast24");
       case 3: return t("forecast48");
       case 4: return t("scenarioTwin");
+      case 5: return "SSP2-4.5 (Year 2030)";
+      case 6: return "SSP2-4.5 (Year 2040)";
+      case 7: return "SSP2-4.5 (Year 2050)";
       default: return "";
     }
   };
@@ -1311,12 +1721,12 @@ export default function VayuSetuDashboard() {
       )}
       
       {/* Absolute Positioned Bright Constellation Stars */}
-      <div className="absolute top-24 left-[8%] w-2 h-2 bg-white rounded-full shadow-[0_0_10px_#fff,0_0_20px_#38bdf8] animate-pulse pointer-events-none z-0"></div>
+      <div className="hidden sm:block absolute top-24 left-[8%] w-2 h-2 bg-white rounded-full shadow-[0_0_10px_#fff,0_0_20px_#38bdf8] animate-pulse pointer-events-none z-0"></div>
       <div className="absolute top-[40%] left-[88%] w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_12px_#fff,0_0_25px_#818cf8] animate-pulse pointer-events-none z-0" style={{ animationDelay: "1.5s", animationDuration: "3s" }}></div>
       <div className="absolute top-[65%] left-[6%] w-2 h-2 bg-white rounded-full shadow-[0_0_10px_#fff,0_0_18px_#6366f1] animate-pulse pointer-events-none z-0" style={{ animationDelay: "3s", animationDuration: "4s" }}></div>
       <div className="absolute top-[78%] left-[92%] w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_8px_#fff,0_0_14px_#22d3ee] animate-pulse pointer-events-none z-0" style={{ animationDelay: "0.5s", animationDuration: "2.5s" }}></div>
       <div className="absolute top-[18%] left-[72%] w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_8px_#fff,0_0_14px_#818cf8] animate-pulse pointer-events-none z-0" style={{ animationDelay: "2s", animationDuration: "3.5s" }}></div>
-      <div className="absolute top-[88%] left-[22%] w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_12px_#fff,0_0_22px_#6366f1] animate-pulse pointer-events-none z-0" style={{ animationDelay: "4s", animationDuration: "5s" }}></div>
+      <div className="hidden sm:block absolute top-[88%] left-[22%] w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_12px_#fff,0_0_22px_#6366f1] animate-pulse pointer-events-none z-0" style={{ animationDelay: "4s", animationDuration: "5s" }}></div>
 
       {/* Official Government Header */}
       <div className="relative z-10 bg-[#0B2545]/90 border-b border-slate-800 px-4 py-2 flex items-center justify-between text-xs text-slate-300 backdrop-blur-md">
@@ -1324,7 +1734,7 @@ export default function VayuSetuDashboard() {
           <span className="bg-[#134074] text-white px-2 py-0.5 rounded font-bold font-mono">{t("isroCollaborative")}</span>
           <span className="hidden sm:inline">{t("govTitle")}</span>
         </div>
-        <div className="flex items-center gap-3 font-mono">
+        <div className="hidden sm:flex items-center gap-3 font-mono">
           <span>{t("telemetryNavic")}</span>
           <span className="h-3 w-px bg-slate-700"></span>
           <span>{t("bhuvanGis")}</span>
@@ -1332,7 +1742,7 @@ export default function VayuSetuDashboard() {
       </div>
 
       {/* Main Header / Navigation bar */}
-      <header className="relative z-10 bg-slate-950/85 border-b border-slate-800/80 px-4 py-3 lg:px-8 flex items-center justify-between shadow-lg backdrop-blur-md">
+      <header className="relative z-10 bg-slate-950/85 border-b border-slate-800/80 px-3 py-2 sm:px-4 sm:py-3 lg:px-8 flex items-center justify-between shadow-lg backdrop-blur-md gap-2">
         <div className="flex items-center gap-3">
           
           {/* Logo Group: VayuSetu and ISRO Logos side by side */}
@@ -1403,9 +1813,9 @@ export default function VayuSetuDashboard() {
         </nav>
 
         {/* Live Status Tag */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Language Selector Dropdown */}
-          <div className="relative inline-block">
+          <div className="relative inline-block hidden sm:block">
             <select
               value={lang}
               onChange={(e) => setLang(e.target.value as Language)}
@@ -1422,12 +1832,12 @@ export default function VayuSetuDashboard() {
           {/* Theme Toggle Button */}
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="flex items-center justify-center p-2 rounded-lg bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-300 transition text-xs font-mono gap-1.5"
+            className="hidden sm:flex items-center justify-center p-2 rounded-lg bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-300 transition text-xs font-mono gap-1.5"
             aria-label="Toggle light/dark theme"
           >
             {isDarkMode ? t("themeLight") : t("themeDark")}
           </button>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.1)]">
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.1)]">
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping"></span> {t("navicSatellite")}
           </span>
           <button
@@ -1525,7 +1935,7 @@ export default function VayuSetuDashboard() {
       {/* Main Layout Grid */}
       <main 
         id="dashboard" 
-        className={`relative z-10 mx-auto p-4 lg:p-6 space-y-6 ${
+        className={`relative z-10 mx-auto p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 ${
           layoutWidth === "standard" 
             ? "max-w-[1280px]" 
             : layoutWidth === "full" 
@@ -1535,13 +1945,13 @@ export default function VayuSetuDashboard() {
       >
         
         {/* Warning & Decision Support Panel */}
-        <div className="bg-slate-950/70 border border-slate-800/80 backdrop-blur-md rounded-r-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-[0_0_15px_rgba(59,130,246,0.06)] border-l-4 border-l-amber-500">
+        <div className="bg-slate-950/70 border border-slate-800/80 backdrop-blur-md rounded-r-lg p-3 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4 shadow-[0_0_15px_rgba(59,130,246,0.06)] border-l-4 border-l-amber-500">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-bold">{t("fewsClimateAlert")}</span>
               <h3 className="font-bold text-slate-200 text-sm">{t("fewsActiveDistrict").replace("{district}", selectedDistrict.toUpperCase())}</h3>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 sm:line-clamp-none">
               {t("activeFocus")}: <span className="font-semibold text-white">{selectedDistrict}</span> | {t("currentRainfall")}: <span className="font-semibold text-slate-200">120 mm</span> | {t("predicted48h")}: <span className="font-semibold text-red-400">+{precipitation}%</span>. 
               {t("runoffHazardEst").replace("{floodRisk}", floodRisk.toString())}
             </p>
@@ -1565,10 +1975,10 @@ export default function VayuSetuDashboard() {
         </div>
 
         {/* 3-Panel Main Operational Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
           
           {/* Panel 1: What-If Simulator & Timeline Controls */}
-          <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-5 space-y-6 lg:col-span-1 flex flex-col justify-between shadow-[0_0_15px_rgba(59,130,246,0.05)] text-slate-200">
+          <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-3 sm:p-5 space-y-4 sm:space-y-6 lg:col-span-1 flex flex-col justify-between shadow-[0_0_15px_rgba(59,130,246,0.05)] text-slate-200">
             <div className="space-y-5">
               <div>
                 <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("simulatorTitle")}</h2>
@@ -1789,33 +2199,180 @@ export default function VayuSetuDashboard() {
               </button>
             </div>
 
-            {/* Model Monitoring panel inside Panel 1 */}
-            <div className="pt-4 border-t border-slate-800/80 space-y-2 text-xs">
-              <span className="text-[10px] uppercase font-mono tracking-widest text-slate-500">{t("telemetryDriftAudit")}</span>
-              <div className="flex justify-between text-slate-300 mt-2">
-                <span>{t("modelAccuracy")}:</span>
-                <span className="font-mono text-emerald-400 font-semibold">{accuracy}%</span>
+            {/* What-If Scenario Studio Results */}
+            <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800 space-y-2">
+              <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block">📊 Scenario Studio Output</span>
+              <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                <div className="bg-slate-950 p-1.5 rounded border border-slate-900">
+                  <div className="text-slate-500 text-[9px]">Heatwave Risk</div>
+                  <div className={`text-[11px] font-bold ${scenarioMetrics.heatwave_risk_shift_pct >= 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {scenarioMetrics.heatwave_risk_shift_pct >= 0 ? '↑' : '↓'} {Math.abs(scenarioMetrics.heatwave_risk_shift_pct)}%
+                  </div>
+                </div>
+                <div className="bg-slate-950 p-1.5 rounded border border-slate-900">
+                  <div className="text-slate-500 text-[9px]">Flood Risk</div>
+                  <div className={`text-[11px] font-bold ${scenarioMetrics.flood_risk_shift_pct >= 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {scenarioMetrics.flood_risk_shift_pct >= 0 ? '↑' : '↓'} {Math.abs(scenarioMetrics.flood_risk_shift_pct)}%
+                  </div>
+                </div>
+                <div className="bg-slate-950 p-1.5 rounded border border-slate-900">
+                  <div className="text-slate-500 text-[9px]">Crop Yield</div>
+                  <div className={`text-[11px] font-bold ${scenarioMetrics.crop_yield_shift_pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {scenarioMetrics.crop_yield_shift_pct >= 0 ? '↑' : '↓'} {Math.abs(scenarioMetrics.crop_yield_shift_pct)}%
+                  </div>
+                </div>
+                <div className="bg-slate-950 p-1.5 rounded border border-slate-900">
+                  <div className="text-slate-500 text-[9px]">Water Availability</div>
+                  <div className={`text-[11px] font-bold ${scenarioMetrics.water_availability_shift_pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {scenarioMetrics.water_availability_shift_pct >= 0 ? '↑' : '↓'} {Math.abs(scenarioMetrics.water_availability_shift_pct)}%
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between text-slate-300">
-                <span>{t("predictionDrift")}:</span>
-                <span className="font-mono text-amber-400 font-semibold">{drift}%</span>
+            </div>
+
+            {/* Southwest Monsoon Tracker */}
+            <div className="mt-4 pt-4 border-t border-slate-800/60 text-slate-200">
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🌦️ Southwest Monsoon Tracker</h2>
+              <div className="mt-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 text-[11px] space-y-2.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span>Monsoon Status:</span>
+                  <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                    {monsoonData.monsoon_status.replace("_", " ")}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[10px] font-mono border-t border-b border-slate-800/40 py-2 text-slate-400">
+                  <div>Onset Kerala: <span className="text-white font-sans font-semibold">{monsoonData.onset_date_kerala}</span></div>
+                  <div>Onset Delay: <span className="text-amber-400 font-sans font-semibold">+{monsoonData.onset_delay_days} days</span></div>
+                  <div>Wind Vectors: <span className="text-indigo-400 font-sans font-semibold">{monsoonData.monsoonal_wind_vectors_ms} m/s</span></div>
+                  <div>Withdrawal: <span className="text-slate-200 font-sans font-semibold">{monsoonData.projected_withdrawal_start}</span></div>
+                </div>
+                <div className="text-[10px] space-y-1">
+                  <div className="text-slate-400 font-semibold font-mono uppercase text-[9px] tracking-wider">Progression:</div>
+                  <div className="text-slate-300 leading-relaxed bg-slate-950/40 p-1.5 rounded border border-slate-900">
+                    {monsoonData.current_progression}
+                  </div>
+                </div>
+                <div className="text-[10px] space-y-1 border-t border-slate-900 pt-1.5">
+                  <div className="text-slate-400 font-semibold font-mono uppercase text-[9px] tracking-wider">Regional Indicators:</div>
+                  <div className="grid grid-cols-3 gap-1 text-[9px]">
+                    <div className="bg-slate-950/60 p-1 rounded text-center border border-slate-900">
+                      <div className="text-slate-500 font-bold">South</div>
+                      <div className="text-slate-300 truncate" title={monsoonData.regional_indicators?.south_india}>{monsoonData.regional_indicators?.south_india}</div>
+                    </div>
+                    <div className="bg-slate-950/60 p-1 rounded text-center border border-slate-900">
+                      <div className="text-slate-500 font-bold">Central</div>
+                      <div className="text-slate-300 truncate" title={monsoonData.regional_indicators?.central_india}>{monsoonData.regional_indicators?.central_india}</div>
+                    </div>
+                    <div className="bg-slate-950/60 p-1 rounded text-center border border-slate-900">
+                      <div className="text-slate-500 font-bold">North</div>
+                      <div className="text-slate-300 truncate" title={monsoonData.regional_indicators?.north_india}>{monsoonData.regional_indicators?.north_india}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between text-slate-300">
-                <span>{t("targetRegionLabel")}:</span>
-                <span className="font-mono text-indigo-400">{selectedDistrict}</span>
+            </div>
+
+            {/* Sector Impact Monitor */}
+            <div className="mt-4 pt-4 border-t border-slate-800/60 text-slate-200">
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🚜 Sector Impact Monitor</h2>
+              <div className="mt-3 space-y-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3">
+                {/* Crop Stress */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span>🌾 Crop Stress Risk:</span>
+                    <span className="font-mono font-bold" style={{ color: getRiskColor(sectorImpactsData.agriculture.crop_stress_pct) }}>
+                      {sectorImpactsData.agriculture.crop_stress_pct}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-950 h-1.5 rounded overflow-hidden">
+                    <div 
+                      className="h-full rounded progress-glow" 
+                      style={{ 
+                        width: `${sectorImpactsData.agriculture.crop_stress_pct}%`, 
+                        backgroundColor: getRiskColor(sectorImpactsData.agriculture.crop_stress_pct),
+                        boxShadow: `0 0 6px ${getRiskColor(sectorImpactsData.agriculture.crop_stress_pct)}`
+                      }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-[9px] font-mono text-slate-500">
+                    <span>Status: {sectorImpactsData.agriculture.status.replace("_", " ")}</span>
+                  </div>
+                </div>
+
+                {/* Reservoir Stress */}
+                <div className="space-y-1 pt-1.5 border-t border-slate-900">
+                  <div className="flex justify-between text-xs">
+                    <span>💧 Reservoir Stress:</span>
+                    <span className="font-mono font-bold" style={{ color: getRiskColor(sectorImpactsData.water.reservoir_stress_pct) }}>
+                      {sectorImpactsData.water.reservoir_stress_pct}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-950 h-1.5 rounded overflow-hidden">
+                    <div 
+                      className="h-full rounded progress-glow" 
+                      style={{ 
+                        width: `${sectorImpactsData.water.reservoir_stress_pct}%`, 
+                        backgroundColor: getRiskColor(sectorImpactsData.water.reservoir_stress_pct),
+                        boxShadow: `0 0 6px ${getRiskColor(sectorImpactsData.water.reservoir_stress_pct)}`
+                      }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-[9px] font-mono text-slate-500">
+                    <span>Evap Index: {sectorImpactsData.water.evaporative_loss_index}</span>
+                  </div>
+                </div>
+
+                {/* Urban Heat Island */}
+                <div className="space-y-1 pt-1.5 border-t border-slate-900">
+                  <div className="flex justify-between text-xs">
+                    <span>🏢 Heat Island Risk:</span>
+                    <span className="font-mono font-bold" style={{ color: getRiskColor(sectorImpactsData.urban.heat_island_risk_pct) }}>
+                      {sectorImpactsData.urban.heat_island_risk_pct}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-950 h-1.5 rounded overflow-hidden">
+                    <div 
+                      className="h-full rounded progress-glow" 
+                      style={{ 
+                        width: `${sectorImpactsData.urban.heat_island_risk_pct}%`, 
+                        backgroundColor: getRiskColor(sectorImpactsData.urban.heat_island_risk_pct),
+                        boxShadow: `0 0 6px ${getRiskColor(sectorImpactsData.urban.heat_island_risk_pct)}`
+                      }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-[9px] font-mono text-slate-500">
+                    <span>UHI Temp Offset: +{sectorImpactsData.urban.microclimate_temp_offset_c}°C</span>
+                  </div>
+                </div>
+
+                {/* Flood Exposure */}
+                <div className="space-y-1 pt-1.5 border-t border-slate-900">
+                  <div className="flex justify-between text-xs">
+                    <span>🌊 Flood Exposure Index:</span>
+                    <span className="font-mono font-bold" style={{ color: getRiskColor(sectorImpactsData.disaster.flood_exposure_index) }}>
+                      {sectorImpactsData.disaster.flood_exposure_index}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-950 h-1.5 rounded overflow-hidden">
+                    <div 
+                      className="h-full rounded progress-glow" 
+                      style={{ 
+                        width: `${sectorImpactsData.disaster.flood_exposure_index}%`, 
+                        backgroundColor: getRiskColor(sectorImpactsData.disaster.flood_exposure_index),
+                        boxShadow: `0 0 6px ${getRiskColor(sectorImpactsData.disaster.flood_exposure_index)}`
+                      }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-[9px] font-mono text-slate-500">
+                    <span>Catchment Saturation: {Math.round(sectorImpactsData.disaster.catchment_saturation_ratio * 100)}%</span>
+                  </div>
+                </div>
               </div>
-              <button 
-                onClick={() => setMetricsModalOpen(true)}
-                className="w-full text-center mt-2 text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 py-1 rounded transition border border-slate-800 font-semibold"
-                aria-label="Inspect performance metrics detailed window"
-              >
-                {t("inspectSpecs")}
-              </button>
             </div>
           </section>
 
           {/* Panel 2: Interactive Digital Twin Map & Temporal Timeline */}
-          <section className="lg:col-span-2 bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl overflow-hidden flex flex-col min-h-[440px] shadow-[0_0_15px_rgba(59,130,246,0.05)]">
+          <section className="lg:col-span-2 bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl overflow-hidden flex flex-col min-h-[350px] sm:min-h-[440px] shadow-[0_0_15px_rgba(59,130,246,0.05)]">
             
             {/* Timeline Selector Header */}
             <div className="bg-slate-950 p-3 border-b border-slate-800/60 flex flex-col gap-2">
@@ -1831,7 +2388,7 @@ export default function VayuSetuDashboard() {
                 <input 
                   type="range" 
                   min="0" 
-                  max="4" 
+                  max="7" 
                   value={timelineStep}
                   onChange={(e) => setTimelineStep(parseInt(e.target.value))}
                   className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600"
@@ -1844,14 +2401,17 @@ export default function VayuSetuDashboard() {
                 <span>{t("lbl24h")}</span>
                 <span>{t("lbl48h")}</span>
                 <span>{t("lblScenario")}</span>
+                <span>2030</span>
+                <span>2040</span>
+                <span>2050</span>
               </div>
             </div>
 
             {/* Map Viewport - Real Leaflet GIS Map */}
-            <div className="flex-1 bg-slate-950/50 relative min-h-[400px]">
+            <div className="flex-1 bg-slate-950/50 relative min-h-[300px] sm:min-h-[400px]">
               
               {/* Map Layer Switcher Overlay */}
-              <div className="absolute top-3 right-3 z-[1000] bg-slate-950/90 border border-slate-800 p-1.5 rounded-lg shadow-lg flex gap-1.5 text-[10px] font-mono backdrop-blur-md">
+              <div className="absolute top-3 right-2 sm:right-3 z-[1000] bg-slate-950/90 border border-slate-800 p-1 sm:p-1.5 rounded-lg shadow-lg flex gap-1 sm:gap-1.5 text-[9px] sm:text-[10px] font-mono backdrop-blur-md">
                 <button 
                   onClick={() => setMapType("styled")}
                   className={`px-2 py-1 rounded transition-colors ${mapType === "styled" ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:text-white"}`}
@@ -1878,8 +2438,53 @@ export default function VayuSetuDashboard() {
                 </button>
               </div>
 
+              {/* High-Resolution Grid Overlay Selector */}
+              <div className="absolute top-12 right-2 sm:right-3 z-[1000] bg-slate-950/90 border border-slate-800 p-1 sm:p-1.5 rounded-lg shadow-lg flex flex-wrap gap-1 sm:gap-1.5 text-[9px] sm:text-[10px] font-mono backdrop-blur-md max-w-[280px] sm:max-w-none">
+                <span className="text-slate-500 self-center px-1">Grid:</span>
+                {[
+                  { id: "none", label: "Off" },
+                  { id: "rainfall", label: "Rain" },
+                  { id: "temperature", label: "Temp" },
+                  { id: "soil_moisture", label: "Soil" },
+                  { id: "flood", label: "Flood" },
+                  { id: "drought", label: "Drought" },
+                  { id: "heatwave", label: "Heat" },
+                  { id: "radar", label: "Radar" },
+                  { id: "hydraulic", label: "Hydraulic" }
+                ].map((layer) => (
+                  <button
+                    key={layer.id}
+                    onClick={() => setActiveGridLayer(layer.id)}
+                    className={`px-1.5 py-0.5 rounded transition-colors ${activeGridLayer === layer.id ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:text-white"}`}
+                  >
+                    {layer.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Floating Grid Cell Details */}
+              {selectedGridCell && (
+                <div className="absolute bottom-3 right-3 z-[1000] bg-slate-950/95 border border-indigo-500/40 p-3 rounded-lg shadow-2xl text-[10px] sm:text-xs font-mono backdrop-blur-md text-slate-300 max-w-[200px]">
+                  <div className="flex justify-between border-b border-slate-800 pb-1 mb-2">
+                    <span className="text-indigo-400 font-bold">📍 {selectedGridCell.cell}</span>
+                    <button onClick={() => setSelectedGridCell(null)} className="text-slate-500 hover:text-red-400 font-bold">✕</button>
+                  </div>
+                  <div className="space-y-1">
+                    <div>Lat: {selectedGridCell.latitude}</div>
+                    <div>Lng: {selectedGridCell.longitude}</div>
+                    <div>Temp: <span className="text-orange-400">{selectedGridCell.temperature}°C</span></div>
+                    <div>Rainfall: <span className="text-blue-400">{selectedGridCell.rainfall} mm</span></div>
+                    <div>Soil Moisture: <span className="text-emerald-400">{selectedGridCell.soil_moisture}%</span></div>
+                    <div className="pt-1 mt-1 border-t border-slate-900">
+                      <div>Flood Risk: <span className="font-bold" style={{ color: getRiskColor(selectedGridCell.flood_risk) }}>{selectedGridCell.flood_risk}%</span></div>
+                      <div>Drought Risk: <span className="font-bold" style={{ color: getRiskColor(selectedGridCell.drought_risk) }}>{selectedGridCell.drought_risk}%</span></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Search Bar Overlay - Top Left */}
-              <div className="absolute top-3 left-12 z-[1000] flex items-center gap-1.5 max-w-[240px] sm:max-w-[300px]">
+              <div className="absolute top-3 left-2 sm:left-12 z-[1000] flex items-center gap-1.5 max-w-[180px] sm:max-w-[300px]">
                 <form onSubmit={handleLocationSearch} className="flex bg-indigo-950/75 border border-indigo-500/30 p-1 rounded-lg shadow-[0_0_15px_rgba(99,102,241,0.2)] focus-within:border-indigo-500 focus-within:shadow-[0_0_20px_rgba(99,102,241,0.35)] transition-all duration-300 backdrop-blur-md w-full">
                   <input
                     type="text"
@@ -1912,12 +2517,51 @@ export default function VayuSetuDashboard() {
               )}
               <div 
                 id="map-container" 
-                className="w-full h-full min-h-[400px] z-0"
+                className="w-full h-full min-h-[300px] sm:min-h-[400px] z-0"
                 style={{ display: mapType === "globe" ? "none" : "block" }}
               ></div>
 
+              {timelineProjection && (
+                <div className="absolute bottom-3 left-3 right-3 z-[1000] bg-slate-950/95 border border-indigo-500/40 p-2.5 rounded-lg shadow-lg font-mono text-[10px] sm:text-xs backdrop-blur-md text-slate-200">
+                  <div className="flex items-center gap-2 text-indigo-400 font-bold border-b border-slate-800 pb-1 mb-1.5 uppercase">
+                    <span>⚠️ SSP2-4.5 Projection Pathway ({timelineProjection.year})</span>
+                    <span className="text-[9px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-1.5 py-0.5 rounded ml-auto">{timelineProjection.scenario}</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-b border-slate-900 pb-2 mb-2">
+                    <div>🌡️ Temp Anomaly: <span className="text-white font-bold font-sans">+{timelineProjection.temperature_anomaly_c}°C</span></div>
+                    <div>🌧️ Precip Shift: <span className="text-white font-bold font-sans">+{timelineProjection.precipitation_shift_pct}%</span></div>
+                    <div>🌊 Sea Level Rise: <span className="text-white font-bold font-sans">+{timelineProjection.sea_level_rise_cm} cm</span></div>
+                    <div>🌾 Crop Yield Stress: <span className="text-red-400 font-bold font-sans">{timelineProjection.crop_yield_stress_multiplier}x</span></div>
+                  </div>
+                  
+                  {timelineProjection.crop_kc_projections && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[9px] sm:text-[10px]">
+                      {Object.entries(timelineProjection.crop_kc_projections).map(([crop, data]: [string, any]) => (
+                        <div key={crop} className="bg-slate-900/60 p-1.5 rounded border border-slate-800/50">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="font-bold text-emerald-400 uppercase">🌾 {crop} Coefficient (Kc)</span>
+                            <span className="text-red-400 font-bold">Yield Loss: {data.yield_loss_pct}%</span>
+                          </div>
+                          <div className="flex justify-between text-slate-400 mb-1">
+                            <span>Irrigation Demand: <span className="text-amber-400 font-sans font-semibold">{data.irrigation_multiplier}x</span></span>
+                          </div>
+                          <div className="grid grid-cols-4 gap-1 text-[8px] text-center border-t border-slate-800/40 pt-1">
+                            {data.stages.map((stage: string, idx: number) => (
+                              <div key={stage} className="bg-slate-950/50 p-0.5 rounded">
+                                <div className="text-[7px] text-slate-500 truncate" title={stage}>{stage}</div>
+                                <div className="text-indigo-300 font-bold">{data.kc_values[idx].toFixed(2)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {mapType === "globe" && (
-                <div className="w-full h-full min-h-[400px] z-0">
+                <div className="w-full h-full min-h-[300px] sm:min-h-[400px] z-0">
                   <Globe 
                     selectedDistrict={selectedDistrict}
                     onSelectDistrict={setSelectedDistrict}
@@ -1928,7 +2572,7 @@ export default function VayuSetuDashboard() {
               )}
 
               {/* Dynamic Bottom Legend overlay */}
-              <div className="absolute bottom-3 left-3 right-3 z-[1000] bg-slate-950/85 border border-slate-800 p-2.5 rounded-lg shadow-md flex items-center justify-between text-xs backdrop-blur-sm">
+              <div className="absolute bottom-2 left-2 right-2 sm:bottom-3 sm:left-3 sm:right-3 z-[1000] bg-slate-950/85 border border-slate-800 p-2 sm:p-2.5 rounded-lg shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 sm:gap-0 text-[10px] sm:text-xs backdrop-blur-sm">
                 <div className="flex items-center gap-1.5 text-slate-300">
                   <span className="font-semibold text-white">{t("activeFocus")}: {selectedDistrict}</span>
                   <span className="text-[10px] bg-slate-900 border border-slate-800 text-indigo-400 px-1.5 py-0.5 rounded font-mono">
@@ -1946,7 +2590,7 @@ export default function VayuSetuDashboard() {
           </section>
 
           {/* Panel 3: Risk matrix, Decision Engine & Explainable AI */}
-          <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-5 space-y-6 lg:col-span-1 shadow-[0_0_15px_rgba(59,130,246,0.05)]">
+          <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-3 sm:p-5 space-y-4 sm:space-y-6 lg:col-span-1 shadow-[0_0_15px_rgba(59,130,246,0.05)]">
             
             {/* Risk scores */}
             <div>
@@ -1977,41 +2621,126 @@ export default function VayuSetuDashboard() {
                     );
                   })()}
                 </div>
+                <div className="pt-2 flex justify-between items-center border-t border-slate-900 text-xs font-bold">
+                  <span className="text-indigo-400">VAYUSETU Index (CRI):</span>
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded text-white" style={{ backgroundColor: getRiskColor(vayusetuRiskData.risk_score) }}>
+                    {vayusetuRiskData.risk_score}/100 ({vayusetuRiskData.level})
+                  </span>
+                </div>
               </div>
+            </div>
+
+            {/* Multi-Model Climate Fusion Widget */}
+            <div>
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🤖 Multi-Model AI Ensemble</h2>
+              {ensembleData ? (
+                <div className="mt-3 space-y-3 bg-slate-900/40 p-3 rounded-xl border border-slate-800/80">
+                  {/* Rainfall Ensemble */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs font-bold text-slate-200">
+                      <span>🌧️ Precipitation Forecast:</span>
+                      <span className="text-blue-400">{ensembleData.rainfall.ensemble_prediction} mm</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] font-mono text-slate-400">
+                      <span>Confidence: {ensembleData.rainfall.confidence_pct}%</span>
+                      <span>Range: {ensembleData.rainfall.range_bounds ? `${ensembleData.rainfall.range_bounds[0]} - ${ensembleData.rainfall.range_bounds[1]} mm` : `±${ensembleData.rainfall.uncertainty_range}`}</span>
+                    </div>
+                    <div className="w-full bg-slate-950 h-1 rounded overflow-hidden">
+                      <div className="bg-blue-500 h-full" style={{ width: `${ensembleData.rainfall.confidence_pct}%` }}></div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 pt-1.5 text-[9px] font-mono text-slate-500">
+                      <div>ConvLSTM: <span className="text-slate-300 font-semibold">{ensembleData.rainfall.models["ConvLSTM-Precip"]}mm</span></div>
+                      <div>TFT: <span className="text-slate-300 font-semibold">{ensembleData.rainfall.models["TFT-Temp"]}mm</span></div>
+                      <div>XGBoost: <span className="text-slate-300 font-semibold">{ensembleData.rainfall.models["XGBoost-LST"]}mm</span></div>
+                    </div>
+                  </div>
+
+                  {/* Temperature Ensemble */}
+                  <div className="space-y-1 pt-2 border-t border-slate-900">
+                    <div className="flex justify-between text-xs font-bold text-slate-200">
+                      <span>🌡️ Temperature Forecast:</span>
+                      <span className="text-amber-400">{ensembleData.temperature.ensemble_prediction} °C</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] font-mono text-slate-400">
+                      <span>Confidence: {ensembleData.temperature.confidence_pct}%</span>
+                      <span>Range: {ensembleData.temperature.range_bounds ? `${ensembleData.temperature.range_bounds[0]} - ${ensembleData.temperature.range_bounds[1]} °C` : `±${ensembleData.temperature.uncertainty_range}`}</span>
+                    </div>
+                    <div className="w-full bg-slate-950 h-1 rounded overflow-hidden">
+                      <div className="bg-amber-500 h-full" style={{ width: `${ensembleData.temperature.confidence_pct}%` }}></div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 pt-1.5 text-[9px] font-mono text-slate-500">
+                      <div>ConvLSTM: <span className="text-slate-300 font-semibold">{ensembleData.temperature.models["ConvLSTM-Precip"]}°C</span></div>
+                      <div>TFT: <span className="text-slate-300 font-semibold">{ensembleData.temperature.models["TFT-Temp"]}°C</span></div>
+                      <div>XGBoost: <span className="text-slate-300 font-semibold">{ensembleData.temperature.models["XGBoost-LST"]}°C</span></div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 text-xs text-slate-500 font-mono italic">Calculating ensemble forecasts...</div>
+              )}
             </div>
 
             {/* Explainable AI (XAI) widget */}
             <div>
-              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("xaiLink")}</h2>
-              <p className="text-[10px] text-slate-500 mt-1 font-sans">{t("xaiDesc")}</p>
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400">{t("xaiLink")}</h2>
+                <div className="flex gap-1 bg-slate-900 p-0.5 rounded text-[9px] font-mono">
+                  <button 
+                    onClick={() => setXaiActiveTab("rain")}
+                    className={`px-1.5 py-0.5 rounded ${xaiActiveTab === "rain" ? "bg-indigo-600 text-white font-bold" : "text-slate-400"}`}
+                  >
+                    Rain
+                  </button>
+                  <button 
+                    onClick={() => setXaiActiveTab("temp")}
+                    className={`px-1.5 py-0.5 rounded ${xaiActiveTab === "temp" ? "bg-indigo-600 text-white font-bold" : "text-slate-400"}`}
+                  >
+                    Temp
+                  </button>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1 font-sans">
+                {xaiActiveTab === "rain" 
+                  ? "Feature contribution for rainfall prediction (Integrated Gradients):" 
+                  : "Feature contribution for temperature prediction (SHAP Values):"
+                }
+              </p>
+              
               <div className="mt-3 space-y-2 text-xs font-mono">
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] text-slate-300">
-                    <span>{t("sstAnomalyLabel")}</span>
-                    <span>{sstWeight}%</span>
-                  </div>
-                  <div className="w-full bg-slate-900 h-1.5 rounded">
-                    <div className="bg-indigo-500 h-1.5 rounded transition-all duration-300 progress-glow" style={{ width: `${sstWeight}%`, boxShadow: "0 0 8px #6366f1" }}></div>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] text-slate-300">
-                    <span>{t("humidityLabel")}</span>
-                    <span>{humidityWeight}%</span>
-                  </div>
-                  <div className="w-full bg-slate-900 h-1.5 rounded">
-                    <div className="bg-indigo-500 h-1.5 rounded transition-all duration-300 progress-glow" style={{ width: `${humidityWeight}%`, boxShadow: "0 0 8px #6366f1" }}></div>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] text-slate-300">
-                    <span>{t("windVectorsLabel")}</span>
-                    <span>{windWeight}%</span>
-                  </div>
-                  <div className="w-full bg-slate-900 h-1.5 rounded">
-                    <div className="bg-indigo-500 h-1.5 rounded transition-all duration-300 progress-glow" style={{ width: `${windWeight}%`, boxShadow: "0 0 8px #6366f1" }}></div>
-                  </div>
-                </div>
+                {xaiActiveTab === "rain" ? (
+                  Object.entries(xaiRainfallAttributions?.attributions || {
+                    "SST Anomaly (Thermodynamic Fuel)": sstWeight,
+                    "Relative Humidity Grid (Moisture Feed)": humidityWeight,
+                    "Monsoon Wind Vectors (Spatio-Temporal Transport)": windWeight
+                  }).map(([feature, weight]: [string, any]) => (
+                    <div key={feature} className="space-y-1">
+                      <div className="flex justify-between text-[10px] text-slate-300">
+                        <span className="truncate max-w-[170px]" title={feature}>{feature}</span>
+                        <span>{weight}%</span>
+                      </div>
+                      <div className="w-full bg-slate-900 h-1.5 rounded">
+                        <div className="bg-indigo-500 h-1.5 rounded transition-all duration-300 progress-glow" style={{ width: `${weight}%`, boxShadow: "0 0 8px #6366f1" }}></div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  Object.entries(xaiTempAttributions?.attributions || {
+                    "LST Anomaly (Land Surface Temperature)": 45,
+                    "Soil Moisture Deficit (Antecedent Dryness)": 25,
+                    "Relative Humidity (Dry Air Mass)": 20,
+                    "Albedo Coefficient (Solar Radiation Absorption)": 10
+                  }).map(([feature, weight]: [string, any]) => (
+                    <div key={feature} className="space-y-1">
+                      <div className="flex justify-between text-[10px] text-slate-300">
+                        <span className="truncate max-w-[170px]" title={feature}>{feature}</span>
+                        <span>{weight}%</span>
+                      </div>
+                      <div className="w-full bg-slate-900 h-1.5 rounded">
+                        <div className="bg-amber-500 h-1.5 rounded transition-all duration-300 progress-glow" style={{ width: `${weight}%`, boxShadow: "0 0 8px #f59e0b" }}></div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
               <button 
                 onClick={() => setXaiModalOpen(true)}
@@ -2022,26 +2751,120 @@ export default function VayuSetuDashboard() {
               </button>
             </div>
 
-            {/* Decision Support advisories */}
+            {/* Climate Action Advisor */}
             <div>
-              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("decisionEngine")}</h2>
-              <ul className="mt-2 text-[11px] text-slate-400 space-y-2">
-                <li className="flex gap-2">
-                  <span className="text-indigo-400 font-bold" aria-hidden="true">✔</span>
-                  <span>{t("advisory1")}</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-indigo-400 font-bold" aria-hidden="true">✔</span>
-                  <span>{t("advisory2")}</span>
-                </li>
-              </ul>
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">📋 Climate Action Advisor</h2>
+              <div className="mt-2 space-y-3">
+                {(activeAdvisories.length > 0 ? activeAdvisories : [
+                  {
+                    title: "Standard Climate Resiliency Guidelines",
+                    level: "NORMAL",
+                    actions: [
+                      "Promote afforestation to strengthen soil structure",
+                      "Maintain local weather telemetry network calibration",
+                      "Conduct community climate awareness workshops"
+                    ]
+                  }
+                ]).map((adv: any, i: number) => {
+                  const levelColor = adv.level === "CRITICAL" ? "text-red-400" : adv.level === "ELEVATED" ? "text-amber-400" : "text-emerald-400";
+                  return (
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
+                        <span className={`px-1 rounded bg-slate-900 border border-slate-800 ${levelColor}`}>{adv.level}</span>
+                        <span className="text-slate-200">{adv.title}</span>
+                      </div>
+                      <ul className="text-[10px] text-slate-400 space-y-1 pl-2">
+                        {adv.actions.map((act: string, j: number) => (
+                          <li key={j} className="flex gap-1.5 items-start">
+                            <span className="text-indigo-400 font-bold" aria-hidden="true">✓</span>
+                            <span>{act}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Model Monitoring panel */}
+            <div className="mt-4 pt-4 border-t border-slate-800/60 text-slate-200">
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🛡️ Model Health & Drift Monitor</h2>
+              <div className="mt-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 space-y-2 text-[11px]">
+                <div className="flex justify-between text-slate-300 font-mono">
+                  <span>Model Health:</span>
+                  <span className="text-emerald-400 font-semibold">{modelHealthData.model_health_pct}%</span>
+                </div>
+                <div className="flex justify-between text-slate-300 font-mono">
+                  <span>Drift Status:</span>
+                  <span className={`font-semibold ${modelHealthData.drift_status === 'STABLE' ? 'text-emerald-400' : 'text-amber-400 animate-pulse'}`}>
+                    {modelHealthData.drift_status}
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-300 font-mono">
+                  <span>Prediction MAE:</span>
+                  <span className="text-slate-200 font-semibold">{modelHealthData.average_error_mae} mm/°C</span>
+                </div>
+                <div className="flex justify-between text-slate-300 font-mono pb-2 border-b border-slate-800/40">
+                  <span>KS-Test p-val:</span>
+                  <span className="text-slate-400">{modelHealthData.ks_test_p_value}</span>
+                </div>
+                
+                <div className="flex gap-1.5 pt-1.5">
+                  <button 
+                    onClick={handleRetrain}
+                    className={`flex-1 py-1 rounded text-[10px] font-mono font-bold transition border ${
+                      modelHealthData.retrain_recommended
+                        ? "bg-amber-600 hover:bg-amber-500 text-white border-amber-500 animate-pulse"
+                        : "bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800"
+                    }`}
+                    aria-label="Trigger model retraining"
+                  >
+                    🔄 Retrain AI
+                  </button>
+                  <button 
+                    onClick={() => setMetricsModalOpen(true)}
+                    className="flex-1 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded text-[10px] font-mono transition border border-slate-800"
+                    aria-label="Inspect performance metrics detailed window"
+                  >
+                    {t("inspectSpecs")}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* National Twin Sync status */}
+            <div className="mt-4 pt-4 border-t border-slate-800/60">
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🌐 National Twin Sync</h2>
+              <div className="mt-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 text-[10px] font-mono space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">District Node:</span>
+                  <span className="text-slate-200 font-sans font-semibold">{selectedDistrict}</span>
+                  <span className="text-emerald-400">● SYNCED</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">State Hub:</span>
+                  <span className="text-slate-200 font-sans font-semibold">{getDistrictInfo(selectedDistrict).zone === "South India" ? "South Region" : "State Node"}</span>
+                  <span className="text-emerald-400">● ACTIVE</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Regional Gateway:</span>
+                  <span className="text-slate-200 font-sans font-semibold">South India Region</span>
+                  <span className="text-emerald-400">● SYNCED</span>
+                </div>
+                <div className="flex items-center justify-between font-bold border-t border-slate-900 pt-1.5">
+                  <span className="text-slate-400">National Twin:</span>
+                  <span className="text-white font-sans">Pan-India Hub</span>
+                  <span className="text-indigo-400">● ONLINE</span>
+                </div>
+              </div>
             </div>
 
             {/* Professional Climate Summary */}
-            <div className="mt-4 pt-4 border-t border-slate-800/60">
+            <div className="mt-4 pt-4 border-t border-slate-800/60 text-slate-200">
               <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("professionalSummary")}</h2>
               <div className="mt-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 text-[11px] space-y-2.5">
-                <div className="grid grid-cols-2 gap-2 text-[10px] font-mono border-b border-slate-800/40 pb-2 text-slate-400">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] font-mono border-b border-slate-800/40 pb-2 text-slate-400">
                   <div>{t("zone")}: <span className="text-white font-sans font-semibold">{t(distInfo.zone)}</span></div>
                   <div>{t("soil")}: <span className="text-white font-sans font-semibold">{t(distInfo.soil)}</span></div>
                   <div className="col-span-2">{t("basin")}: <span className="text-white font-sans font-semibold">{t(distInfo.basin)}</span></div>
@@ -2064,7 +2887,7 @@ export default function VayuSetuDashboard() {
         </div>
 
         {/* Live-Streaming Sensor Ingestion Monitor */}
-        <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-5 shadow-[0_0_15px_rgba(59,130,246,0.05)] text-slate-200 mt-6">
+        <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-3 sm:p-5 shadow-[0_0_15px_rgba(59,130,246,0.05)] text-slate-200 mt-4 sm:mt-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-3 mb-4">
             <div className="flex items-center gap-3">
               <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400">
@@ -2079,6 +2902,12 @@ export default function VayuSetuDashboard() {
                 <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
                   {isStreaming ? "LIVE FEED" : "PAUSED"}
                 </span>
+              </div>
+              
+              <div className="hidden md:flex items-center gap-4 border-l border-slate-800 pl-4 text-[10px] font-mono text-slate-400">
+                <div>Estimator: <span className="text-indigo-400 font-bold">1D Kalman Filter</span></div>
+                <div>Kalman Gain (K): <span className="text-white">{kalmanGain}</span></div>
+                <div>Covariance (P): <span className="text-white">{kalmanCovariance}</span></div>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -2099,7 +2928,7 @@ export default function VayuSetuDashboard() {
             </div>
           </div>
 
-          <div ref={logContainerRef} className="bg-slate-950/90 border border-slate-900 rounded-lg p-4 font-mono text-[11px] overflow-y-auto max-h-[180px] h-[180px] space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
+          <div ref={logContainerRef} className="bg-slate-950/90 border border-slate-900 rounded-lg p-2 sm:p-4 font-mono text-[10px] sm:text-[11px] overflow-y-auto max-h-[140px] sm:max-h-[180px] h-[140px] sm:h-[180px] space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
             {telemetryLogs.length === 0 ? (
               <div className="text-slate-600 italic text-center py-12">No telemetry packets received. Activate feed to stream.</div>
             ) : (
@@ -2119,7 +2948,7 @@ export default function VayuSetuDashboard() {
                 else if (log.level === "WARNING") lvlColor = "text-amber-500 font-bold animate-pulse";
 
                 return (
-                  <div key={log.id} className="flex items-start gap-2 hover:bg-slate-900/40 p-0.5 rounded transition">
+                  <div key={log.id} className="flex items-start gap-1 sm:gap-2 hover:bg-slate-900/40 p-0.5 rounded transition flex-wrap sm:flex-nowrap">
                     <span className="text-slate-600">[{log.time}]</span>
                     <span className={`font-bold ${srcColor}`}>[{log.source}]</span>
                     <span className={lvlColor}>[{log.level}]</span>
@@ -2142,81 +2971,95 @@ export default function VayuSetuDashboard() {
                 <span className="text-lg" aria-hidden="true">🧠</span>
                 <div>
                   <h3 id="xai-modal-title" className="font-bold text-base">{t("xaiModalTitle")}</h3>
-                  <p className="text-[10px] text-slate-400 font-mono">{t("xaiModalSubtitle")}</p>
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    {xaiActiveTab === "rain" ? "Integrated Gradients (ConvLSTM Spatial Attribution)" : "SHAP Values (XGBoost Feature Importance)"}
+                  </p>
                 </div>
               </div>
-              <button 
-                onClick={() => setXaiModalOpen(false)}
-                className="text-slate-400 hover:text-red-400 text-lg font-bold"
-                aria-label="Close dialog"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1 bg-slate-900 p-0.5 rounded text-[10px] font-mono mr-2">
+                  <button 
+                    onClick={() => setXaiActiveTab("rain")}
+                    className={`px-2 py-0.5 rounded ${xaiActiveTab === "rain" ? "bg-indigo-600 text-white font-bold" : "text-slate-400"}`}
+                  >
+                    Rainfall (Integrated Gradients)
+                  </button>
+                  <button 
+                    onClick={() => setXaiActiveTab("temp")}
+                    className={`px-2 py-0.5 rounded ${xaiActiveTab === "temp" ? "bg-indigo-600 text-white font-bold" : "text-slate-400"}`}
+                  >
+                    Temperature (SHAP)
+                  </button>
+                </div>
+                <button 
+                  onClick={() => setXaiModalOpen(false)}
+                  className="text-slate-400 hover:text-red-400 text-lg font-bold"
+                  aria-label="Close dialog"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
             {/* Modal Content */}
             <div className="p-6 space-y-6 text-sm text-slate-300">
               <div>
-                <span className="text-xs uppercase font-mono tracking-widest text-slate-500">{t("liveSpaceAttributions")}</span>
+                <span className="text-xs uppercase font-mono tracking-widest text-slate-500">
+                  {xaiActiveTab === "rain" ? "Integrated Gradients Attribution Map" : "SHAP Force Attributions"}
+                </span>
                 <p className="text-xs mt-1">
-                  {(() => {
-                    const parts = t("xaiModalDesc").split("{rainAnomaly}mm");
-                    if (parts.length === 2) {
-                      return (
-                        <>
-                          {parts[0]}
-                          <span className="text-red-400 font-bold">142mm {t("rainfallAnomalyText")}</span>
-                          {parts[1].replace("rainfall anomaly", "")}
-                        </>
-                      );
-                    }
-                    return t("xaiModalDesc").replace("{rainAnomaly}", "142");
-                  })()}
+                  {xaiActiveTab === "rain" 
+                    ? `Attributions show the relative influence of inputs pushing the ConvLSTM model to predict a simulated rainfall anomaly for ${selectedDistrict}.`
+                    : `Attributions reflect how specific parameters pull the XGBoost model outputs away from base temperatures to predict drought/heat stress for ${selectedDistrict}.`
+                  }
                 </p>
               </div>
 
-              {/* SHAP Bars inside Modal */}
+              {/* Attribution Bars */}
               <div className="space-y-4 font-mono text-xs">
-                <div className="space-y-1">
-                  <div className="flex justify-between text-slate-200">
-                    <span>{t("insatSstAnomaly")}</span>
-                    <span className="text-indigo-400 font-bold">+{sstWeight}%</span>
-                  </div>
-                  <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden">
-                    <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${sstWeight}%` }}></div>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-slate-200">
-                    <span>{t("griddedRelativeHumidity")}</span>
-                    <span className="text-indigo-400 font-bold">+{humidityWeight}%</span>
-                  </div>
-                  <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden">
-                    <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${humidityWeight}%` }}></div>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-slate-200">
-                    <span>{t("monsoonWindVectors")}</span>
-                    <span className="text-indigo-400 font-bold">+{windWeight}%</span>
-                  </div>
-                  <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden">
-                    <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${windWeight}%` }}></div>
-                  </div>
-                </div>
+                {xaiActiveTab === "rain" ? (
+                  Object.entries(xaiRainfallAttributions?.attributions || {
+                    "SST Anomaly (Thermodynamic Fuel)": sstWeight,
+                    "Relative Humidity Grid (Moisture Feed)": humidityWeight,
+                    "Monsoon Wind Vectors (Spatio-Temporal Transport)": windWeight
+                  }).map(([feature, weight]: [string, any]) => (
+                    <div key={feature} className="space-y-1">
+                      <div className="flex justify-between text-slate-200">
+                        <span>{feature}</span>
+                        <span className="text-indigo-400 font-bold">+{weight}%</span>
+                      </div>
+                      <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden">
+                        <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${weight}%` }}></div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  Object.entries(xaiTempAttributions?.attributions || {
+                    "LST Anomaly (Land Surface Temperature)": 45,
+                    "Soil Moisture Deficit (Antecedent Dryness)": 25,
+                    "Relative Humidity (Dry Air Mass)": 20,
+                    "Albedo Coefficient (Solar Radiation Absorption)": 10
+                  }).map(([feature, weight]: [string, any]) => (
+                    <div key={feature} className="space-y-1">
+                      <div className="flex justify-between text-slate-200">
+                        <span>{feature}</span>
+                        <span className="text-amber-400 font-bold">+{weight}%</span>
+                      </div>
+                      <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden">
+                        <div className="bg-amber-600 h-full transition-all duration-300" style={{ width: `${weight}%` }}></div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
 
               <div className="bg-slate-900 p-4 rounded border border-slate-800 text-xs leading-relaxed">
                 <strong className="text-slate-200 block mb-1">{t("diagnosticInsightLabel")}</strong>
-                {(() => {
-                  const text = t("xaiInsightText")
-                    .replace("{tempRise}", tempRise.toString())
-                    .replace("{sstWeight}", sstWeight.toString())
-                    .replace("{district}", selectedDistrict)
-                    .replace("{floodRisk}", floodRisk.toString());
-                  return <span>{text}</span>;
-                })()}
+                <span>
+                  {xaiActiveTab === "rain"
+                    ? (xaiRainfallAttributions?.insight || `SST Anomaly is above base climate variables, contributing the highest positive attribution. High SST acts as a thermodynamic fuel, evaporating heavy moisture grids which are pushed into ${selectedDistrict} by wind vectors.`)
+                    : (xaiTempAttributions?.insight || `High Land Surface Temperature (LST) anomaly coupled with severe soil moisture deficit and dry air mass explains the elevated drought risk in ${selectedDistrict}.`)
+                  }
+                </span>
               </div>
             </div>
             {/* Modal Footer */}
@@ -2681,7 +3524,7 @@ export default function VayuSetuDashboard() {
       )}
 
       {/* Floating AI Climate Assistant Button */}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50">
         <button 
           onClick={() => setAssistantOpen(!assistantOpen)}
           className="bg-indigo-950 hover:bg-indigo-900 text-white font-bold p-3.5 rounded-full shadow-2xl transition duration-300 flex items-center gap-2 border border-indigo-800 shadow-[0_0_15px_rgba(99,102,241,0.2)]"
@@ -2763,7 +3606,7 @@ export default function VayuSetuDashboard() {
 
       {/* Premium Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-24 left-6 z-50 bg-indigo-950/95 border border-indigo-500/30 text-slate-100 px-4 py-3 rounded-lg shadow-2xl flex items-center gap-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-5 duration-300">
+        <div className="fixed bottom-20 sm:bottom-24 left-3 right-3 sm:left-6 sm:right-auto z-50 bg-indigo-950/95 border border-indigo-500/30 text-slate-100 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg shadow-2xl flex items-center gap-2 sm:gap-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-5 duration-300">
           <span className="text-indigo-400">⚡</span>
           <span className="text-xs font-semibold">{toastMessage}</span>
           <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white text-xs ml-2">✕</button>

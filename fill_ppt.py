@@ -5,7 +5,7 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 
 def get_image_path(pattern):
-    base_dir = r"C:\Users\UDAYV\.gemini\antigravity\brain\1e9a45dd-5dac-41ac-bdd9-3b16f65ee7fd"
+    base_dir = r"C:\Users\UDAYV\.gemini\antigravity\brain\c3d22ca5-9417-4dc1-b1cf-733620d3acce"
     search_path = os.path.join(base_dir, pattern)
     files = glob.glob(search_path)
     if files:
@@ -132,19 +132,19 @@ def main():
                 p.font.name = "Arial"
             
             cell = table.cell(0, 1)
-            cell.text = "Team Member-1:\n\nName: [Name]\nRole: Deep Learning Engineer (XAI & ConvLSTM)\nCollege: Geospatial Science Division"
+            cell.text = "Team Member-1:\n\nName: Team Member 1\nRole: Deep Learning Engineer (XAI & ConvLSTM)\nCollege: Geospatial Science Division"
             for p in cell.text_frame.paragraphs:
                 p.font.size = Pt(11)
                 p.font.name = "Arial"
                 
             cell = table.cell(1, 0)
-            cell.text = "Team Member-2:\n\nName: [Name]\nRole: Mobile-Responsive Frontend & GIS Developer\nCollege: Earth & Climate Applications Division"
+            cell.text = "Team Member-2:\n\nName: Team Member 2\nRole: Mobile-Responsive Frontend & GIS Developer\nCollege: Earth & Climate Applications Division"
             for p in cell.text_frame.paragraphs:
                 p.font.size = Pt(11)
                 p.font.name = "Arial"
                 
             cell = table.cell(1, 1)
-            cell.text = "Team Member-3:\n\nName: [Name]\nRole: Data Engineer (Ingestion & Validation)\nCollege: Space Applications Centre"
+            cell.text = "Team Member-3:\n\nName: Team Member 3\nRole: Data Engineer (Ingestion & Validation)\nCollege: Space Applications Centre"
             for p in cell.text_frame.paragraphs:
                 p.font.size = Pt(11)
                 p.font.name = "Arial"
@@ -192,7 +192,9 @@ def main():
                 "- **Aggregated Scores**: Calculates dynamic indices for Flood, Heatwave, and Drought across all 12 zones, yielding overall national and regional alert levels.",
                 "### 4. Interactive What-If Scenario Builder",
                 "- **Variables**: Adjust Precipitation, Temp Rise, Soil Moisture (AMC), and Urban expansion sliders. Instantly outputs projected risk shifts per zone.",
-                "### 5. Timeline Slider & Model Quality",
+                "### 5. Universal Cross-Screen Compatibility",
+                "- **Mobile-Responsive UI**: Government-grade operations panel fully optimized for tablet and mobile devices with collapsible navigation, touch-friendly Leaflet/Mapbox controls, auto-wrapping telemetry streaming monitors, and notch/safe-area support.",
+                "### 6. Timeline Slider & Model Quality",
                 "- **Temporal Playback**: Past State -> Current Ingestion -> 24h -> 48h Forecast -> Scenario projection.",
                 "- **Production Monitoring**: Real-time dashboards monitoring prediction accuracy (92%) and data drift (1.8%)."
             ]
@@ -200,7 +202,7 @@ def main():
 
     # ------------------ SLIDE 5: PROCESS FLOW ------------------
     slide5 = prs.slides[4]
-    img_path_5 = get_image_path("gov_process_flow_*.png")
+    img_path_5 = get_image_path("process_flow_diagram_*.png")
     for shape in slide5.shapes:
         if shape.has_text_frame and "Process flow diagram" in shape.text_frame.text:
             shape.left = Inches(0.5)
@@ -240,7 +242,8 @@ def main():
 
     # ------------------ SLIDE 7: ARCHITECTURE ------------------
     slide7 = prs.slides[6]
-    img_path_7 = get_image_path("gov_architecture_diagram_*.png")
+    img_path_7 = get_image_path("architecture_diagram_*.png")
+    img_path_uc = get_image_path("usecase_diagram_*.png")
     for shape in slide7.shapes:
         if shape.has_text_frame and "Architecture diagram of the" in shape.text_frame.text:
             shape.left = Inches(0.5)
@@ -249,14 +252,17 @@ def main():
             shape.height = Inches(0.7)
             
             paragraphs = [
-                "**VAYUSETU DECOUPLED TECHNICAL ARCHITECTURE**",
-                "3-tier layout: Mobile-responsive Next.js UI, FastAPI microservice router, and PostgreSQL core GIS engine."
+                "**VAYUSETU DECOUPLED TECHNICAL ARCHITECTURE & USE CASES**",
+                "3-tier system architecture and actor use-cases optimized for seamless GIS operations."
             ]
             clear_and_write_paragraphs(shape.text_frame, paragraphs, font_size=10)
             
     if img_path_7:
-        slide7.shapes.add_picture(img_path_7, Inches(1.2), Inches(1.3), width=Inches(7.6))
+        slide7.shapes.add_picture(img_path_7, Inches(0.4), Inches(1.3), width=Inches(4.4))
         print("Inserted Slide 7 Architecture Diagram successfully!")
+    if img_path_uc:
+        slide7.shapes.add_picture(img_path_uc, Inches(5.2), Inches(1.3), width=Inches(4.4))
+        print("Inserted Slide 7 Use-Case Diagram successfully!")
 
     # ------------------ SLIDE 8: TECHNOLOGIES ------------------
     slide8 = prs.slides[7]

@@ -50,5 +50,46 @@ class TestHydrologicalSimulation(unittest.TestCase):
         self.assertEqual(viz_res["hazard_level"], "CRITICAL")
         self.assertTrue(viz_res["risk_score"] > 80)
 
+    def test_saint_venant_solver_2d(self):
+        """Test Saint-Venant 2D hydraulic flood routing solver matrix outputs."""
+        import numpy as np
+        from app.services.hydraulic_routing import SaintVenantSolver2D
+        
+        nx, ny = 8, 8
+        elevation = np.ones((nx, ny)) * 10.0
+        # Create a slope in elevation
+        for i in range(nx):
+            elevation[i, :] = 10.0 - i * 0.5
+            
+        runoff = np.zeros((nx, ny))
+        runoff[3, 3] = 0.5  # Input runoff in the center
+        
+        solver = SaintVenantSolver2D(nx=nx, ny=ny, dx=10.0, dy=10.0, dt=0.01)
+        h, u, v = solver.solve(elevation, runoff, steps=5)
+        
+        self.assertEqual(h.shape, (nx, ny))
+        self.assertEqual(u.shape, (nx, ny))
+        self.assertEqual(v.shape, (nx, ny))
+        # Water should flow down the slope (positive u-velocity in x-direction due to elevation difference)
+        self.assertTrue(np.any(u > 0.0))
+
+    def test_dataset_ingestor(self):
+        """Test dataset ingestor parsing functions and fallback generation."""
+        from app.services.dataset_ingestor import DatasetIngestor
+        
+        ingestor = DatasetIngestor(data_dir="temp_test_data")
+        
+        lst_grid = ingestor.parse_insat_hdf5("mock_insat.h5", product_type="LST")
+        self.assertEqual(lst_grid.shape, (16, 16))
+        
+        sst_grid = ingestor.parse_insat_hdf5("mock_insat.h5", product_type="SST")
+        self.assertEqual(sst_grid.shape, (16, 16))
+        
+        rain_grid = ingestor.parse_imd_netcdf("mock_imd.nc", variable="rainfall")
+        self.assertEqual(rain_grid.shape, (16, 16))
+        
+        sm_grid = ingestor.parse_era5_soil_moisture("mock_era5.nc")
+        self.assertEqual(sm_grid.shape, (16, 16))
+
 if __name__ == "__main__":
     unittest.main()
