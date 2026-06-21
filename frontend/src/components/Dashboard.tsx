@@ -2613,7 +2613,7 @@ export default function VayuSetuDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
           
           {/* Panel 1: What-If Simulator & Timeline Controls */}
-          <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-3 sm:p-5 space-y-4 sm:space-y-6 lg:col-span-1 flex flex-col justify-between shadow-[0_0_15px_rgba(59,130,246,0.05)] text-slate-200">
+          <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-3 sm:p-5 space-y-4 sm:space-y-6 lg:col-span-1 flex flex-col shadow-[0_0_15px_rgba(59,130,246,0.05)] text-slate-200">
             <div className="space-y-5">
               <div>
                 <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("simulatorTitle")}</h2>
@@ -2815,7 +2815,11 @@ export default function VayuSetuDashboard() {
               </button>
             </div>
 
-            {/* What-If Scenario Studio Results */}
+            {/* What-If Scenario Studio Results — only shown after simulation ran */}
+            {(scenarioMetrics.heatwave_risk_shift_pct !== 0 ||
+              scenarioMetrics.flood_risk_shift_pct !== 0 ||
+              scenarioMetrics.crop_yield_shift_pct !== 0 ||
+              scenarioMetrics.water_availability_shift_pct !== 0) && (
             <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800 space-y-2">
               <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold block">📊 Scenario Studio Output</span>
               <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
@@ -2845,6 +2849,7 @@ export default function VayuSetuDashboard() {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Southwest Monsoon Tracker */}
             <div className="mt-4 pt-4 border-t border-slate-800/60 text-slate-200">
@@ -2852,39 +2857,47 @@ export default function VayuSetuDashboard() {
               <div className="mt-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 text-[11px] space-y-2.5">
                 <div className="flex justify-between items-center text-xs">
                   <span>Monsoon Status:</span>
-                  <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
-                    {monsoonData.monsoon_status.replace("_", " ")}
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold border ${
+                    (monsoonData?.monsoon_status || '').includes('ACTIVE') || (monsoonData?.monsoon_status || '').includes('ONSET')
+                      ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
+                      : (monsoonData?.monsoon_status || '').includes('WITHDRAW')
+                      ? 'bg-amber-950 text-amber-400 border-amber-800'
+                      : 'bg-slate-900 text-slate-300 border-slate-700'
+                  }`}>
+                    {(monsoonData?.monsoon_status || 'LOADING').replace(/_/g, ' ')}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[10px] font-mono border-t border-b border-slate-800/40 py-2 text-slate-400">
-                  <div>Onset Kerala: <span className="text-white font-sans font-semibold">{monsoonData.onset_date_kerala}</span></div>
-                  <div>Onset Delay: <span className="text-amber-400 font-sans font-semibold">+{monsoonData.onset_delay_days} days</span></div>
-                  <div>Wind Vectors: <span className="text-indigo-400 font-sans font-semibold">{monsoonData.monsoonal_wind_vectors_ms} m/s</span></div>
-                  <div>Withdrawal: <span className="text-slate-200 font-sans font-semibold">{monsoonData.projected_withdrawal_start}</span></div>
+                  <div>Onset Kerala: <span className="text-white font-sans font-semibold">{monsoonData?.onset_date_kerala || '—'}</span></div>
+                  <div>Onset Delay: <span className="text-amber-400 font-sans font-semibold">{monsoonData?.onset_delay_days != null ? `+${monsoonData.onset_delay_days} days` : '—'}</span></div>
+                  <div>Wind Vectors: <span className="text-indigo-400 font-sans font-semibold">{monsoonData?.monsoonal_wind_vectors_ms != null ? `${monsoonData.monsoonal_wind_vectors_ms} m/s` : '—'}</span></div>
+                  <div>Withdrawal: <span className="text-slate-200 font-sans font-semibold">{monsoonData?.projected_withdrawal_start || '—'}</span></div>
                 </div>
                 <div className="text-[10px] space-y-1">
                   <div className="text-slate-400 font-semibold font-mono uppercase text-[9px] tracking-wider">Progression:</div>
                   <div className="text-slate-300 leading-relaxed bg-slate-950/40 p-1.5 rounded border border-slate-900">
-                    {monsoonData.current_progression}
+                    {monsoonData?.current_progression || 'Awaiting data...'}
                   </div>
                 </div>
+                {monsoonData?.regional_indicators && (
                 <div className="text-[10px] space-y-1 border-t border-slate-900 pt-1.5">
                   <div className="text-slate-400 font-semibold font-mono uppercase text-[9px] tracking-wider">Regional Indicators:</div>
                   <div className="grid grid-cols-3 gap-1 text-[9px]">
                     <div className="bg-slate-950/60 p-1 rounded text-center border border-slate-900">
                       <div className="text-slate-500 font-bold">South</div>
-                      <div className="text-slate-300 truncate" title={monsoonData.regional_indicators?.south_india}>{monsoonData.regional_indicators?.south_india}</div>
+                      <div className="text-slate-300 truncate" title={monsoonData.regional_indicators?.south_india}>{monsoonData.regional_indicators?.south_india || '—'}</div>
                     </div>
                     <div className="bg-slate-950/60 p-1 rounded text-center border border-slate-900">
                       <div className="text-slate-500 font-bold">Central</div>
-                      <div className="text-slate-300 truncate" title={monsoonData.regional_indicators?.central_india}>{monsoonData.regional_indicators?.central_india}</div>
+                      <div className="text-slate-300 truncate" title={monsoonData.regional_indicators?.central_india}>{monsoonData.regional_indicators?.central_india || '—'}</div>
                     </div>
                     <div className="bg-slate-950/60 p-1 rounded text-center border border-slate-900">
                       <div className="text-slate-500 font-bold">North</div>
-                      <div className="text-slate-300 truncate" title={monsoonData.regional_indicators?.north_india}>{monsoonData.regional_indicators?.north_india}</div>
+                      <div className="text-slate-300 truncate" title={monsoonData.regional_indicators?.north_india}>{monsoonData.regional_indicators?.north_india || '—'}</div>
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             </div>
 
