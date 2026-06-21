@@ -1,0 +1,8 @@
+{
+  "model": "unet_convlstm_rainfall",
+  "version": "2.1.0-Ensemble",
+  "mae": 23.42,
+  "rmse": 26.63,
+  "r2_score": -2.68,
+  "created_at": "2026-06-21T08:33:00Z"
+}

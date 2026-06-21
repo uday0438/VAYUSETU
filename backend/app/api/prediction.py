@@ -60,9 +60,9 @@ def get_prediction_explanation(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/drift-status")
-def get_drift_status() -> Dict[str, Any]:
+def get_drift_status(district: str = Query("Visakhapatnam", description="District for drift status")) -> Dict[str, Any]:
     """Returns telemetry drift auditing statistics and model health metrics."""
-    return compute_model_health_and_drift()
+    return compute_model_health_and_drift(district)
 
 @router.post("/retrain")
 def trigger_retraining():

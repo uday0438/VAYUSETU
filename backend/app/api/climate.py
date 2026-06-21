@@ -152,8 +152,15 @@ def get_monsoon_tracker() -> Dict[str, Any]:
     }
 
 @router.get("/grid-data")
-def get_grid_data(district: str = Query("Visakhapatnam", description="District to generate high-resolution grid for")) -> List[Dict[str, Any]]:
-    """Generates a 1 km x 1 km climate grid overlaying the selected district center."""
+def get_grid_data(
+    district: str = Query("Visakhapatnam", description="District to generate high-resolution grid for"),
+    precipitation_anomaly_pct: float = Query(20.0, description="Precipitation anomaly percentage"),
+    temp_rise_c: float = Query(1.5, description="Global temperature anomaly"),
+    urbanization_increase_pct: float = Query(15.0, description="Urban cover shift percentage"),
+    soil_moisture_pct: float = Query(50.0, description="Soil moisture index percentage"),
+    vegetation_increase_pct: float = Query(0.0, description="Forest cover shift percentage")
+) -> List[Dict[str, Any]]:
+    """Generates a 1 km x 1 km climate grid overlaying the selected district center, scaled by scenario parameters."""
     center = DISTRICT_CENTERS.get(district, [17.6868, 83.2185])
     
     # Get base district parameters from DB
@@ -174,6 +181,12 @@ def get_grid_data(district: str = Query("Visakhapatnam", description="District t
         base_temp, base_rain, base_sm, base_hum = 30.0, 50.0, 50.0, 75.0
         base_lst, base_sst = 32.0, 28.5
         
+    # Scale base values based on user scenario
+    base_temp = base_temp + temp_rise_c
+    base_rain = base_rain * (1.0 + precipitation_anomaly_pct / 100.0)
+    base_sm = min(98.0, max(10.0, soil_moisture_pct - (vegetation_increase_pct * 0.1)))
+    base_lst = base_lst + temp_rise_c + (urbanization_increase_pct * 0.05)
+    
     grid_cells = []
     cell_idx = 1
     
