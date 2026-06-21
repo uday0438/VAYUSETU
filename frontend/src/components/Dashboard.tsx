@@ -2998,6 +2998,97 @@ export default function VayuSetuDashboard() {
                 </div>
               </div>
             </div>
+
+            {/* Quick Actions */}
+            <div className="mt-4 pt-4 border-t border-slate-800/60">
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">⚡ Quick Actions</h2>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setTimelineStep(2)}
+                  className="py-2 px-2 bg-slate-900 hover:bg-indigo-950 border border-slate-800 hover:border-indigo-700 text-slate-300 hover:text-indigo-300 text-[10px] font-mono rounded transition text-left"
+                >
+                  🕐 24h Forecast
+                </button>
+                <button
+                  onClick={() => setTimelineStep(4)}
+                  className="py-2 px-2 bg-slate-900 hover:bg-indigo-950 border border-slate-800 hover:border-indigo-700 text-slate-300 hover:text-indigo-300 text-[10px] font-mono rounded transition text-left"
+                >
+                  🧪 Run Scenario
+                </button>
+                <button
+                  onClick={() => setTimelineStep(5)}
+                  className="py-2 px-2 bg-slate-900 hover:bg-indigo-950 border border-slate-800 hover:border-indigo-700 text-slate-300 hover:text-indigo-300 text-[10px] font-mono rounded transition text-left"
+                >
+                  📅 2030 Outlook
+                </button>
+                <button
+                  onClick={() => setTimelineStep(7)}
+                  className="py-2 px-2 bg-slate-900 hover:bg-indigo-950 border border-slate-800 hover:border-indigo-700 text-slate-300 hover:text-indigo-300 text-[10px] font-mono rounded transition text-left"
+                >
+                  🔮 2050 Outlook
+                </button>
+              </div>
+            </div>
+
+            {/* ISRO Data Feed Status */}
+            <div className="mt-4 pt-4 border-t border-slate-800/60">
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🛰️ ISRO Data Feed</h2>
+              <div className="mt-3 space-y-1.5 text-[10px] font-mono">
+                {[
+                  { src: "INSAT-3D/3DR", type: "LST & OLR", status: "LIVE", color: "text-emerald-400" },
+                  { src: "MOSDAC API", type: "Rainfall Grid", status: "LIVE", color: "text-emerald-400" },
+                  { src: "IMD Station", type: "Surface Obs", status: "SYNCED", color: "text-indigo-400" },
+                  { src: "NavIC L5-S1", type: "Positioning", status: "ACTIVE", color: "text-emerald-400" },
+                  { src: "Bhoonidhi DEM", type: "Elevation", status: "CACHED", color: "text-amber-400" },
+                ].map((feed) => (
+                  <div key={feed.src} className="flex items-center justify-between bg-slate-900/50 px-2 py-1 rounded border border-slate-900">
+                    <div>
+                      <span className="text-slate-300">{feed.src}</span>
+                      <span className="text-slate-600 ml-1">— {feed.type}</span>
+                    </div>
+                    <span className={`text-[9px] font-bold ${feed.color} flex items-center gap-1`}>
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                      {feed.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Model Confidence Card */}
+            <div className="mt-4 pt-4 border-t border-slate-800/60">
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🧠 Model Confidence</h2>
+              <div className="mt-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 space-y-2 text-[10px] font-mono">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Health Score</span>
+                  <span className="text-emerald-400 font-bold">{modelHealthData.model_health_pct}%</span>
+                </div>
+                <div className="w-full bg-slate-950 h-1.5 rounded overflow-hidden">
+                  <div className="h-full rounded bg-emerald-500" style={{ width: `${modelHealthData.model_health_pct}%`, boxShadow: '0 0 6px #10b981' }} />
+                </div>
+                <div className="flex justify-between items-center pt-1">
+                  <span className="text-slate-400">Drift Status</span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
+                    modelHealthData.drift_status === 'STABLE' ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
+                    : modelHealthData.drift_status === 'DRIFTING' ? 'bg-amber-950 text-amber-400 border-amber-800'
+                    : 'bg-red-950 text-red-400 border-red-800'
+                  }`}>{modelHealthData.drift_status}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Avg MAE</span>
+                  <span className="text-slate-200">{modelHealthData.average_error_mae} mm/°C</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">KS p-value</span>
+                  <span className={modelHealthData.ks_test_p_value > 0.05 ? 'text-emerald-400' : 'text-red-400'}>{modelHealthData.ks_test_p_value}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Retrains Done</span>
+                  <span className="text-slate-200">{modelHealthData.retrains_completed}</span>
+                </div>
+              </div>
+            </div>
+
           </section>
 
           {/* Panel 2: Interactive Digital Twin Map & Temporal Timeline */}
