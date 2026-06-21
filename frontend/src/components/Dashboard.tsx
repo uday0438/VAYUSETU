@@ -313,6 +313,19 @@ export default function VayuSetuDashboard() {
   const [drift, setDrift] = useState("1.8");
   const [twinMode, setTwinMode] = useState<"demo" | "research">("demo");
 
+  // Live Date/Time state
+  const [liveDateTime, setLiveDateTime] = useState<string>("");
+
+  useEffect(() => {
+    const updateDateTime = () => {
+      const now = new Date();
+      setLiveDateTime(now.toLocaleString());
+    };
+    updateDateTime();
+    const timer = setInterval(updateDateTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Splash Screen States
   const [showSplash, setShowSplash] = useState(true);
   const [splashFading, setSplashFading] = useState(false);
@@ -4788,7 +4801,9 @@ export default function VayuSetuDashboard() {
       {/* Footer */}
       <footer className="relative z-10 border-t border-slate-900 bg-slate-950/90 py-5 px-4 text-center text-xs text-slate-500 mt-12">
         <p>{t("footerCredits")}</p>
-        <p className="mt-1 font-mono text-[10px]">{t("footerStatus")}</p>
+        <p className="mt-1 font-mono text-[10px]">
+          {t("footerStatus")} | <span className="text-indigo-400 font-semibold">{liveDateTime}</span>
+        </p>
       </footer>
     </div>
   );
