@@ -311,7 +311,7 @@ def get_twin_metadata(district: str = "Visakhapatnam") -> Dict[str, Any]:
     w_stress = WaterStressEngine().calculate_risk(temp, rain)
     c_stress = CropStressEngine().calculate_risk(temp, sm)
     
-    cri = round(100.0 - (f_haz + h_haz + d_haz + w_stress + c_stress) / 5.0, 1)
+    cri = round(0.35 * f_haz + 0.35 * h_haz + 0.15 * d_haz + 0.15 * w_stress, 1)
     
     # 5. ISRO Assets
     insat_status = InsatConnector().fetch_thermal_telemetry()
@@ -368,8 +368,17 @@ def export_district_report(district: str = "Visakhapatnam"):
     
     if not row:
         temp, rain, sm, hum = 31.8, 75.0, 68.0, 82.0
+        f_haz = 58.0
+        d_haz = 20.0
     else:
         temp, rain, sm, hum = row["temperature"], row["rainfall"], row["soil_moisture"], row["humidity"]
+        f_haz = row["flood_risk"]
+        d_haz = row["drought_risk"]
+        
+    h_haz = max(10.0, min(100.0, (temp - 25.0) * 5.0))
+    from hazards.water_stress_engine import WaterStressEngine
+    w_stress = WaterStressEngine().calculate_risk(temp, rain)
+    cri = round(0.35 * f_haz + 0.35 * h_haz + 0.15 * d_haz + 0.15 * w_stress, 1)
         
     report = f"""=========================================
 VAYUSETU CLIMATE DIGITAL TWIN INTEL REPORT
@@ -385,9 +394,11 @@ METRIC SUMMARY:
 - Humidity: {hum:.2f}%
 
 RISK PROFILE & RESILIENCE:
-- Flood Risk Score: {row['flood_risk'] if row else 58.0}/100
-- Drought Risk Score: {row['drought_risk'] if row else 20.0}/100
-- Climate Resilience Index (CRI): {round(100.0 - ((row['flood_risk'] if row else 58.0) + (row['drought_risk'] if row else 20.0)) / 2.0, 1)}/100
+- Flood Risk Score: {f_haz:.1f}/100
+- Drought Risk Score: {d_haz:.1f}/100
+- Heat Risk Score: {h_haz:.1f}/100
+- Water Stress Score: {w_stress:.1f}/100
+- Climate Resilience Index (CRI): {cri}/100
 
 AI MODEL LINEAGE & PERFORMANCE:
 - Ensemble Models Active: ConvLSTM-Precip, TFT-Temp, XGBoost-LST

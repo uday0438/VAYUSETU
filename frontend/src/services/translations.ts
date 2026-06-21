@@ -244,7 +244,7 @@ export const TRANSLATIONS: Record<Language, TranslationDict> = {
     basin: "Basin",
     soilPerm: "Soil Permeability",
     lowInf: "Low Infiltration / High Impervious",
-    highInf: "High Infiltration / Low Infiltration",
+    highInf: "High Infiltration / Low Runoff",
     hydroStatus: "Hydrological Status",
     thermalProfile: "Thermal Profile",
     agriRisk: "Agricultural Risk",

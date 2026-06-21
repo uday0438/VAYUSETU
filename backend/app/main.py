@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 logger = logging.getLogger(__name__)
 
 # Import API routers
-from app.api import climate, prediction, simulation
+from app.api import climate, prediction, simulation, twin_modules
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -47,6 +47,7 @@ def health_check():
 app.include_router(climate.router, prefix="/api/v1/climate", tags=["Climate Data Layer"])
 app.include_router(prediction.router, prefix="/api/v1/prediction", tags=["AI Prediction Layer"])
 app.include_router(simulation.router, prefix="/api/v1/simulation", tags=["Climate Simulation Layer"])
+app.include_router(twin_modules.router, prefix="/api/v1/twin", tags=["Digital Twin Modules"])
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True, reload_dirs=["backend"])

@@ -81,5 +81,59 @@ class TestVayuSetuBackend(unittest.TestCase):
         self.assertIn("rice", json_data["crop_kc_projections"])
         self.assertTrue(json_data["crop_kc_projections"]["rice"]["irrigation_multiplier"] > 1.0)
 
+    def test_twin_status_endpoint(self):
+        """Test that the twin status overview is correctly serving status parameters."""
+        response = self.client.get("/api/v1/twin/twin-status")
+        self.assertEqual(response.status_code, 200)
+        json_data = response.json()
+        self.assertEqual(json_data["status"], "ACTIVE")
+        self.assertEqual(json_data["twin_version"], "v1.24")
+        self.assertIn("twin_health_score", json_data)
+        self.assertIn("twin_trust_score", json_data)
+
+    def test_twin_lineage_endpoint(self):
+        """Test that the twin lineage data matches our seeded trail."""
+        response = self.client.get("/api/v1/twin/twin-lineage")
+        self.assertEqual(response.status_code, 200)
+        json_data = response.json()
+        self.assertIn("assimilation_run_id", json_data)
+        self.assertIn("dataset_sources", json_data)
+
+    def test_twin_audit_trail_endpoint(self):
+        """Test that the append-only audit log is accessible."""
+        response = self.client.get("/api/v1/twin/audit-trail?limit=5")
+        self.assertEqual(response.status_code, 200)
+        json_data = response.json()
+        self.assertEqual(json_data["status"], "success")
+        self.assertTrue(len(json_data["trail"]) > 0)
+
+    def test_twin_copilot_ask_endpoint(self):
+        """Test that the AI copilot endpoint processes questions dynamic and logically."""
+        payload = {"question": "What happens if rainfall increases 20%?"}
+        response = self.client.post("/api/v1/twin/copilot/ask", json=payload)
+        self.assertEqual(response.status_code, 200)
+        json_data = response.json()
+        self.assertEqual(json_data["question"], payload["question"])
+        self.assertIn("answer", json_data)
+        self.assertIn("runoff", json_data["answer"].lower())
+
+    def test_twin_policy_simulate_endpoint(self):
+        """Test that the policy sandbox simulator calculates risk variations."""
+        payload = {
+            "base_flood": 58.0,
+            "base_heat": 42.0,
+            "base_drought": 20.0,
+            "base_water": 35.0,
+            "forest_cover_change_pct": 10.0,
+            "urbanization_change_pct": 15.0,
+            "water_storage_change_pct": 20.0
+        }
+        response = self.client.post("/api/v1/twin/policy-simulate", json=payload)
+        self.assertEqual(response.status_code, 200)
+        json_data = response.json()
+        self.assertEqual(json_data["status"], "success")
+        self.assertIn("simulation", json_data)
+        self.assertIn("analysis_report", json_data)
+
 if __name__ == "__main__":
     unittest.main()

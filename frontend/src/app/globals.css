@@ -201,15 +201,8 @@ body {
 }
 
 /* Background panel / card fixes */
-.light-theme .bg-slate-950,
-.light-theme .bg-slate-950\/85,
-.light-theme .bg-slate-950\/65,
-.light-theme .bg-slate-950\/90,
-.light-theme .bg-slate-950\/50,
-.light-theme .bg-slate-900,
-.light-theme .bg-slate-900\/40,
-.light-theme .bg-slate-900\/60,
-.light-theme .bg-slate-900\/80 {
+.light-theme [class*="bg-slate-950"],
+.light-theme [class*="bg-slate-900"] {
   background-color: rgba(255, 255, 255, 0.85) !important;
   color: #1e293b !important;
 }
@@ -223,10 +216,7 @@ body {
 }
 
 /* Borders */
-.light-theme .border-slate-800,
-.light-theme .border-slate-800\/60,
-.light-theme .border-slate-800\/80,
-.light-theme .border-slate-800\/75 {
+.light-theme [class*="border-slate-800"] {
   border-color: #cbd5e1 !important;
 }
 
@@ -313,6 +303,139 @@ body {
 }
 .light-theme .bg-slate-900\/60:hover {
   background-color: #e2e8f0 !important;
+}
+
+/* Preserve original text colors for dark containers in light theme */
+.light-theme [class*="bg-[#0b1329]"].text-white,
+.light-theme [class*="bg-[#0b1329]"] .text-white,
+.light-theme .preserve-dark.text-white,
+.light-theme .preserve-dark .text-white,
+.light-theme [class*="bg-[#0b1329]"] h2,
+.light-theme [class*="bg-[#0b1329]"] h3,
+.light-theme [class*="bg-[#0b1329]"] h4,
+.light-theme [class*="bg-[#0b1329]"] strong.text-white,
+.light-theme .preserve-dark strong.text-white {
+  color: #ffffff !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-slate-50,
+.light-theme [class*="bg-[#0b1329]"] .text-slate-50,
+.light-theme .preserve-dark.text-slate-50,
+.light-theme .preserve-dark .text-slate-50 {
+  color: #f8fafc !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-slate-100,
+.light-theme [class*="bg-[#0b1329]"] .text-slate-100,
+.light-theme .preserve-dark.text-slate-100,
+.light-theme .preserve-dark .text-slate-100 {
+  color: #f1f5f9 !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-slate-200,
+.light-theme [class*="bg-[#0b1329]"] .text-slate-200,
+.light-theme .preserve-dark.text-slate-200,
+.light-theme .preserve-dark .text-slate-200 {
+  color: #e2e8f0 !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-slate-300,
+.light-theme [class*="bg-[#0b1329]"] .text-slate-300,
+.light-theme .preserve-dark.text-slate-300,
+.light-theme .preserve-dark .text-slate-300 {
+  color: #cbd5e1 !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-slate-400,
+.light-theme [class*="bg-[#0b1329]"] .text-slate-400,
+.light-theme .preserve-dark.text-slate-400,
+.light-theme .preserve-dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-slate-500,
+.light-theme [class*="bg-[#0b1329]"] .text-slate-500,
+.light-theme .preserve-dark.text-slate-500,
+.light-theme .preserve-dark .text-slate-500 {
+  color: #64748b !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-indigo-100,
+.light-theme [class*="bg-[#0b1329]"] .text-indigo-100,
+.light-theme .preserve-dark.text-indigo-100,
+.light-theme .preserve-dark .text-indigo-100 {
+  color: #e0e7ff !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-indigo-300,
+.light-theme [class*="bg-[#0b1329]"] .text-indigo-300,
+.light-theme .preserve-dark.text-indigo-300,
+.light-theme .preserve-dark .text-indigo-300 {
+  color: #c7d2fe !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-indigo-400,
+.light-theme [class*="bg-[#0b1329]"] .text-indigo-400,
+.light-theme .preserve-dark.text-indigo-400,
+.light-theme .preserve-dark .text-indigo-400 {
+  color: #818cf8 !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-indigo-500,
+.light-theme [class*="bg-[#0b1329]"] .text-indigo-500,
+.light-theme .preserve-dark.text-indigo-500,
+.light-theme .preserve-dark .text-indigo-500 {
+  color: #6366f1 !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-emerald-400,
+.light-theme [class*="bg-[#0b1329]"] .text-emerald-400,
+.light-theme .preserve-dark.text-emerald-400,
+.light-theme .preserve-dark .text-emerald-400 {
+  color: #34d399 !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-amber-400,
+.light-theme [class*="bg-[#0b1329]"] .text-amber-400,
+.light-theme .preserve-dark.text-amber-400,
+.light-theme .preserve-dark .text-amber-400 {
+  color: #fbbf24 !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-red-400,
+.light-theme [class*="bg-[#0b1329]"] .text-red-400,
+.light-theme .preserve-dark.text-red-400,
+.light-theme .preserve-dark .text-red-400 {
+  color: #f87171 !important;
+}
+
+.light-theme [class*="bg-[#0b1329]"].text-red-300,
+.light-theme [class*="bg-[#0b1329]"] .text-red-300,
+.light-theme .preserve-dark.text-red-300,
+.light-theme .preserve-dark .text-red-300 {
+  color: #fca5a5 !important;
+}
+
+/* Make Chat Drawer background light in light theme */
+.light-theme [class*="bg-[#080d1a]"] {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Ensure text inside colored buttons and badges remains white in light theme */
+.light-theme button.text-white,
+.light-theme button .text-white,
+.light-theme [class*="bg-indigo"] .text-white,
+.light-theme [class*="bg-indigo"] *,
+.light-theme [class*="bg-emerald"] .text-white,
+.light-theme [class*="bg-emerald"] *,
+.light-theme [class*="bg-red"] .text-white,
+.light-theme [class*="bg-red"] *,
+.light-theme [class*="bg-amber"] .text-white,
+.light-theme [class*="bg-amber"] *,
+.light-theme [class*="bg-slate-950"] button.text-white {
+  color: #ffffff !important;
 }
 
 /* ==========================================================================

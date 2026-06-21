@@ -1,0 +1,1 @@
+This folder contains the high-resolution screenshots of the VAYUSETU Digital Twin interface, visualizing real-time Kalman-assimilated layers, scenario simulation runs, and AI copilot interactions.
