@@ -3210,33 +3210,51 @@ export default function VayuSetuDashboard() {
               ></div>
 
               {timelineProjection && (
-                <div className="absolute bottom-3 left-3 right-3 z-[1000] bg-slate-950/95 border border-indigo-500/40 p-2.5 rounded-lg shadow-lg font-mono text-[10px] sm:text-xs backdrop-blur-md text-slate-200">
-                  <div className="flex items-center gap-2 text-indigo-300 font-bold border-b border-slate-800 pb-1 mb-1.5 uppercase">
+                <div className="absolute bottom-3 left-3 right-3 z-[1000] bg-slate-950/97 border border-indigo-500/50 p-2.5 rounded-lg shadow-xl font-mono text-[10px] backdrop-blur-md text-slate-200 max-h-[55%] overflow-y-auto">
+                  {/* Header */}
+                  <div className="flex items-center gap-2 text-indigo-300 font-bold border-b border-slate-800 pb-1.5 mb-2 uppercase sticky top-0 bg-slate-950/97">
                     <span>⚠️ SSP2-4.5 Projection Pathway ({timelineProjection.year})</span>
-                    <span className="text-[9px] bg-indigo-600 text-white border border-indigo-500 px-1.5 py-0.5 rounded ml-auto font-mono">{timelineProjection.scenario}</span>
+                    <span className="text-[9px] bg-indigo-600 text-white border border-indigo-400 px-2 py-0.5 rounded ml-auto font-mono font-bold tracking-wide">{timelineProjection.scenario}</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-b border-slate-900 pb-2 mb-2">
-                    <div className="text-slate-300">🌡️ Temp Anomaly: <span className="text-white font-bold font-sans">+{timelineProjection.temperature_anomaly_c}°C</span></div>
-                    <div className="text-slate-300">🌧️ Precip Shift: <span className="text-white font-bold font-sans">+{timelineProjection.precipitation_shift_pct}%</span></div>
-                    <div className="text-slate-300">🌊 Sea Level Rise: <span className="text-white font-bold font-sans">+{timelineProjection.sea_level_rise_cm} cm</span></div>
-                    <div className="text-slate-300">🌾 Crop Yield Stress: <span className="text-red-400 font-bold font-sans">{timelineProjection.crop_yield_stress_multiplier}x</span></div>
+
+                  {/* Stats row — nowrap so values never break to next line */}
+                  <div className="grid grid-cols-4 gap-1.5 border-b border-slate-900 pb-2 mb-2">
+                    <div className="bg-slate-900/60 rounded px-1.5 py-1 border border-slate-800">
+                      <div className="text-slate-500 text-[8px] mb-0.5">🌡️ Temp Anomaly</div>
+                      <div className="text-white font-bold whitespace-nowrap">+{timelineProjection.temperature_anomaly_c}°C</div>
+                    </div>
+                    <div className="bg-slate-900/60 rounded px-1.5 py-1 border border-slate-800">
+                      <div className="text-slate-500 text-[8px] mb-0.5">🌧️ Precip Shift</div>
+                      <div className="text-white font-bold whitespace-nowrap">+{timelineProjection.precipitation_shift_pct}%</div>
+                    </div>
+                    <div className="bg-slate-900/60 rounded px-1.5 py-1 border border-slate-800">
+                      <div className="text-slate-500 text-[8px] mb-0.5">🌊 Sea Level Rise</div>
+                      <div className="text-white font-bold whitespace-nowrap">+{timelineProjection.sea_level_rise_cm} cm</div>
+                    </div>
+                    <div className="bg-slate-900/60 rounded px-1.5 py-1 border border-slate-800">
+                      <div className="text-slate-500 text-[8px] mb-0.5">🌾 Crop Stress</div>
+                      <div className="text-red-400 font-bold whitespace-nowrap">{timelineProjection.crop_yield_stress_multiplier}x</div>
+                    </div>
                   </div>
-                  
+
+                  {/* Crop Kc Cards */}
                   {timelineProjection.crop_kc_projections && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[9px] sm:text-[10px]">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {Object.entries(timelineProjection.crop_kc_projections).map(([crop, data]: [string, any]) => (
-                        <div key={crop} className="bg-slate-900/60 p-1.5 rounded border border-slate-800/50">
-                        <div className="flex justify-between items-center mb-1.5">
-                            <span className="font-bold text-emerald-300 uppercase text-[9px]">🌾 {crop} Coefficient (Kc)</span>
-                            <span className="text-red-400 font-bold text-[9px] bg-red-950/60 px-1.5 py-0.5 rounded border border-red-900">Yield Loss: {data.yield_loss_pct}%</span>
+                        <div key={crop} className="bg-slate-900 p-2 rounded-lg border border-slate-700">
+                          <div className="flex justify-between items-center mb-1.5">
+                            <span className="font-bold text-emerald-300 uppercase text-[9px] tracking-wide">🌾 {crop} Kc</span>
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-red-300 border border-slate-700">
+                              Loss: {data.yield_loss_pct}%
+                            </span>
                           </div>
-                          <div className="flex justify-between text-slate-300 mb-1.5">
-                            <span>Irrigation Demand: <span className="text-amber-300 font-sans font-semibold">{data.irrigation_multiplier}x</span></span>
+                          <div className="text-slate-400 text-[9px] mb-1.5">
+                            Irrigation: <span className="text-amber-300 font-semibold">{data.irrigation_multiplier}x</span>
                           </div>
-                          <div className="grid grid-cols-4 gap-1 text-[9px] text-center border-t border-slate-800/40 pt-1.5">
+                          <div className="grid grid-cols-4 gap-1">
                             {data.stages.map((stage: string, idx: number) => (
-                              <div key={stage} className="bg-slate-900 p-1 rounded border border-slate-800">
-                                <div className="text-[8px] text-slate-400 truncate font-mono" title={stage}>{stage}</div>
+                              <div key={stage} className="bg-slate-950 p-1 rounded border border-slate-800 text-center">
+                                <div className="text-[8px] text-slate-400 font-mono leading-tight" title={stage}>{stage}</div>
                                 <div className="text-indigo-300 font-bold text-[10px] mt-0.5">{data.kc_values[idx].toFixed(2)}</div>
                               </div>
                             ))}
@@ -3247,6 +3265,7 @@ export default function VayuSetuDashboard() {
                   )}
                 </div>
               )}
+
 
               {mapType === "globe" && (
                 <div className="w-full h-full min-h-[300px] sm:min-h-[400px] z-0">
