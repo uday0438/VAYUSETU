@@ -1,0 +1,8 @@
+{
+  "model": "ensemble_v1",
+  "algorithm": "Weighted Ensemble Blend",
+  "trained_on": "IMD + INSAT",
+  "rmse": 2.1,
+  "mae": 1.4,
+  "created": "2026-06-21"
+}

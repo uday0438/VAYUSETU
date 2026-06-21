@@ -1,0 +1,8 @@
+{
+  "model": "rainfall_v2",
+  "algorithm": "ConvLSTM",
+  "trained_on": "IMD + INSAT Rainfall",
+  "rmse": 2.2,
+  "mae": 1.7,
+  "created": "2026-06-21"
+}

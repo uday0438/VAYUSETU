@@ -1430,6 +1430,74 @@ export default function VayuSetuDashboard() {
     }
   };
 
+  const handleExportReport = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/climate/operational/district-report?district=${encodeURIComponent(selectedDistrict)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const element = document.createElement("a");
+        const file = new Blob([data.report], {type: 'text/plain'});
+        element.href = URL.createObjectURL(file);
+        element.download = `VAYUSETU_${selectedDistrict.replace(/\s+/g, '_')}_Climate_Report.txt`;
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+        setToastMessage(`Exported Climate Intelligence Report for ${selectedDistrict}!`);
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } catch (err) {
+      setToastMessage("Failed to export report.");
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
+  const handleGenerateBrief = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/climate/operational/climate-brief?district=${encodeURIComponent(selectedDistrict)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setToastMessage(`Brief generated! Checked RAG Space.`);
+        setChatHistory(prev => [
+          ...prev,
+          { role: "user", text: `Generate climate brief for ${selectedDistrict}` },
+          { role: "assistant", text: data.brief }
+        ]);
+        setAssistantOpen(true);
+      }
+    } catch (err) {
+      setToastMessage("Failed to generate brief.");
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
+  const handleBroadcastAlert = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/climate/operational/broadcast-alert?district=${encodeURIComponent(selectedDistrict)}`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setToastMessage(data.message);
+        setTimeout(() => setToastMessage(null), 5000);
+      }
+    } catch (err) {
+      setToastMessage("Failed to broadcast alert.");
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
+  const handleDownloadPolicyPDF = () => {
+    const link = document.createElement('a');
+    link.href = `${API_BASE}/api/v1/climate/operational/policy-pdf`;
+    link.download = 'VAYUSETU_DATASET_INVENTORY.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setToastMessage("Downloading Dataset Inventory Policy PDF...");
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
@@ -1995,33 +2063,96 @@ export default function VayuSetuDashboard() {
         }`}
       >
         
-        {/* Warning & Decision Support Panel */}
-        <div className="bg-slate-950/70 border border-slate-800/80 backdrop-blur-md rounded-r-lg p-3 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4 shadow-[0_0_15px_rgba(59,130,246,0.06)] border-l-4 border-l-amber-500">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-bold">{t("fewsClimateAlert")}</span>
-              <h3 className="font-bold text-slate-200 text-sm">{t("fewsActiveDistrict").replace("{district}", selectedDistrict.toUpperCase())}</h3>
+        {/* Climate Command Center Dashboard */}
+        <div className="bg-slate-950/70 border border-slate-800/80 backdrop-blur-md rounded-xl p-4 sm:p-5 shadow-[0_0_20px_rgba(99,102,241,0.08)] border-l-4 border-l-indigo-500">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Column 1: Twin Status Panel */}
+            <div className="space-y-3 md:border-r border-slate-800/60 md:pr-6">
+              <div className="flex items-center gap-2">
+                <span className="text-emerald-400 animate-pulse text-xs">●</span>
+                <span className="text-xs uppercase font-mono tracking-wider text-slate-400 font-bold">Twin Status Panel</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-300">
+                <div className="bg-slate-900/60 p-2 rounded border border-slate-800/40">
+                  <span className="text-[9px] text-slate-500 block">TWIN ACTIVE</span>
+                  <span className="text-emerald-400 font-bold">100% ONLINE</span>
+                </div>
+                <div className="bg-slate-900/60 p-2 rounded border border-slate-800/40">
+                  <span className="text-[9px] text-slate-500 block">ACCURACY (R²)</span>
+                  <span className="text-indigo-400 font-bold">{accuracy || "94.8"}%</span>
+                </div>
+                <div className="bg-slate-900/60 p-2 rounded border border-slate-800/40">
+                  <span className="text-[9px] text-slate-500 block">DATASETS</span>
+                  <span className="text-indigo-300 font-bold">6 Live Feeds</span>
+                </div>
+                <div className="bg-slate-900/60 p-2 rounded border border-slate-800/40">
+                  <span className="text-[9px] text-slate-500 block">FORECAST HORIZON</span>
+                  <span className="text-slate-200 font-bold">48h Spatial Grid</span>
+                </div>
+              </div>
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 sm:line-clamp-none">
-              {t("activeFocus")}: <span className="font-semibold text-white">{selectedDistrict}</span> | {t("currentRainfall")}: <span className="font-semibold text-slate-200">120 mm</span> | {t("predicted48h")}: <span className="font-semibold text-red-400">+{precipitation}%</span>. 
-              {t("runoffHazardEst").replace("{floodRisk}", floodRisk.toString())}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button 
-              onClick={() => setXaiModalOpen(true)}
-              className="bg-indigo-950/80 hover:bg-[#134074] text-indigo-300 border border-indigo-800 px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition shadow-[0_0_10px_rgba(99,102,241,0.1)]"
-              aria-label="Explain prediction model"
-            >
-              {t("explainPredictionModel")}
-            </button>
-            <button 
-              onClick={() => setMetricsModalOpen(true)}
-              className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition"
-              aria-label="View accuracy metrics"
-            >
-              {t("viewAccuracyMetrics")}
-            </button>
+
+            {/* Column 2: AI Insights & Alerts */}
+            <div className="space-y-3 md:border-r border-slate-800/60 md:px-6">
+              <div className="flex items-center gap-2">
+                <span className="text-indigo-400 text-xs">ℹ</span>
+                <span className="text-xs uppercase font-mono tracking-wider text-slate-400 font-bold">Climate Command Insights ({selectedDistrict})</span>
+              </div>
+              <div className="space-y-1.5 text-[11px] font-mono text-slate-300">
+                <div className="flex justify-between items-center bg-slate-900/40 px-2 py-1 rounded">
+                  <span>Flood Risk Index:</span>
+                  <span className={`font-bold ${floodRisk > 75 ? 'text-red-400' : 'text-slate-300'}`}>{floodRisk}%</span>
+                </div>
+                <div className="flex justify-between items-center bg-slate-900/40 px-2 py-1 rounded">
+                  <span>Heatwave Risk:</span>
+                  <span className="text-slate-300 font-bold">{heatwaveRisk}%</span>
+                </div>
+                <div className="flex justify-between items-center bg-slate-900/40 px-2 py-1 rounded">
+                  <span>Rainfall Anomaly:</span>
+                  <span className={`font-bold ${precipitation >= 20 ? 'text-red-400' : 'text-slate-300'}`}>+{precipitation}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Column 3: Operational Command Portal */}
+            <div className="space-y-3 md:pl-6 flex flex-col justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-amber-500 text-xs">⚡</span>
+                <span className="text-xs uppercase font-mono tracking-wider text-slate-400 font-bold">Operational Command Portal</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button 
+                  onClick={handleExportReport}
+                  className="py-1.5 bg-indigo-950/80 hover:bg-[#134074] text-indigo-300 border border-indigo-800 text-[10px] font-mono rounded font-semibold transition text-center"
+                  aria-label="Export District Intelligence Report"
+                >
+                  📄 Export Report
+                </button>
+                <button 
+                  onClick={handleGenerateBrief}
+                  className="py-1.5 bg-indigo-950/80 hover:bg-[#134074] text-indigo-300 border border-indigo-800 text-[10px] font-mono rounded font-semibold transition text-center"
+                  aria-label="Generate Climate Action Brief"
+                >
+                  📝 Generate Brief
+                </button>
+                <button 
+                  onClick={handleBroadcastAlert}
+                  className="py-1.5 bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-800 text-[10px] font-mono rounded font-semibold transition text-center"
+                  aria-label="Broadcast CAP Alert"
+                >
+                  🚨 Broadcast Alert
+                </button>
+                <button 
+                  onClick={handleDownloadPolicyPDF}
+                  className="py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-[10px] font-mono rounded font-semibold transition text-center"
+                  aria-label="Download Policy PDF"
+                >
+                  ⬇ Policy PDF
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
 

@@ -24,8 +24,8 @@ def get_climate_forecast(district: str = "Visakhapatnam") -> Dict[str, Any]:
         base_rain = 75.0
         
     # Run multi-model fusion
-    rain_forecast = get_ensemble_forecast(base_rain, "rainfall")
-    temp_forecast = get_ensemble_forecast(base_temp, "temperature")
+    rain_forecast = get_ensemble_forecast(base_rain, "rainfall", district)
+    temp_forecast = get_ensemble_forecast(base_temp, "temperature", district)
     
     # Add explicit range bounds for uncertainty quantification (Prediction Interval)
     # Rainfall range

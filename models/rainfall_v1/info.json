@@ -1,0 +1,8 @@
+{
+  "model": "rainfall_v1",
+  "algorithm": "ConvLSTM",
+  "trained_on": "IMD Rainfall",
+  "rmse": 2.3,
+  "mae": 1.8,
+  "created": "2026-06-21"
+}

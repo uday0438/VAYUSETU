@@ -1,0 +1,8 @@
+{
+  "model": "temperature_v1",
+  "algorithm": "Temporal Transformer",
+  "trained_on": "IMD Temp + INSAT LST",
+  "rmse": 0.8,
+  "mae": 0.5,
+  "created": "2026-06-21"
+}

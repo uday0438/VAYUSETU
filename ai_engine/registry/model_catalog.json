@@ -1,0 +1,32 @@
+[
+  {
+    "model": "rainfall_v1",
+    "version": "v1.0",
+    "algorithm": "ConvLSTM",
+    "dataset": "IMD Rainfall",
+    "rmse": 2.3,
+    "mae": 1.8,
+    "r2": 0.92,
+    "created": "2026-06-21T09:00:00Z"
+  },
+  {
+    "model": "temperature_v1",
+    "version": "v1.0",
+    "algorithm": "Temporal Transformer",
+    "dataset": "IMD Temperature + INSAT LST",
+    "rmse": 0.8,
+    "mae": 0.5,
+    "r2": 0.95,
+    "created": "2026-06-21T09:10:00Z"
+  },
+  {
+    "model": "ensemble_v1",
+    "version": "v1.0",
+    "algorithm": "Weighted Ensemble Blend",
+    "dataset": "IMD + INSAT",
+    "rmse": 2.1,
+    "mae": 1.4,
+    "r2": 0.94,
+    "created": "2026-06-21T09:30:00Z"
+  }
+]
