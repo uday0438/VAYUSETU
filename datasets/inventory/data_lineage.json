@@ -1,0 +1,24 @@
+
+{
+  "project": "VAYUSETU",
+  "lineage": {
+    "IMD_Rainfall": {
+      "raw_source": "IMD FTP / API Server",
+      "ingestion_method": "FastAPI Cron Service",
+      "assimilation": "Kalman Filter (twin_core/assimilation_engine.py)",
+      "target_state_variable": "rainfall"
+    },
+    "INSAT_LST": {
+      "raw_source": "MOSDAC Web Services",
+      "ingestion_method": "FastAPI Stream Queue",
+      "assimilation": "Physics-informed constraints & Kalman Filter",
+      "target_state_variable": "lst"
+    },
+    "Bhuvan_LULC": {
+      "raw_source": "Bhuvan WMS Service",
+      "ingestion_method": "Geospatial GIS Fetcher",
+      "assimilation": "Static grid background constraint",
+      "target_state_variable": "soil_type, elevation, runoff_coeff"
+    }
+  }
+}

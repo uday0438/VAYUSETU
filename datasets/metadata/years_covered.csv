@@ -1,0 +1,8 @@
+dataset,start_year,end_year,total_years
+IMD_Rainfall,1901,2026,126
+IMD_Temperature,1969,2026,58
+INSAT_LST,2014,2026,13
+INSAT_SST,2014,2026,13
+MOSDAC_Winds,2016,2026,11
+Bhuvan_LULC,2005,2025,21
+NICES_Products,2018,2026,9

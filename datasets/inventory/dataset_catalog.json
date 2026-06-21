@@ -1,0 +1,53 @@
+
+[
+  {
+    "dataset_name": "IMD Gridded Rainfall",
+    "source": "India Meteorological Department (IMD)",
+    "start_date": "1901-01-01",
+    "end_date": "2026-06-21",
+    "spatial_resolution": "0.25 x 0.25 deg",
+    "temporal_resolution": "Daily",
+    "coverage_percent": 100.0,
+    "last_updated": "2026-06-21"
+  },
+  {
+    "dataset_name": "INSAT-3D LST",
+    "source": "MOSDAC / ISRO",
+    "start_date": "2014-01-01",
+    "end_date": "2026-06-21",
+    "spatial_resolution": "4 km",
+    "temporal_resolution": "Half-Hourly",
+    "coverage_percent": 95.0,
+    "last_updated": "2026-06-21"
+  },
+  {
+    "dataset_name": "MOSDAC Ocean Winds",
+    "source": "MOSDAC / ISRO",
+    "start_date": "2016-01-01",
+    "end_date": "2026-06-21",
+    "spatial_resolution": "25 km",
+    "temporal_resolution": "Daily",
+    "coverage_percent": 92.0,
+    "last_updated": "2026-06-21"
+  },
+  {
+    "dataset_name": "Bhuvan LULC Layers",
+    "source": "Bhuvan / NRSC",
+    "start_date": "2005-01-01",
+    "end_date": "2025-12-31",
+    "spatial_resolution": "56 m",
+    "temporal_resolution": "Annual",
+    "coverage_percent": 100.0,
+    "last_updated": "2026-01-15"
+  },
+  {
+    "dataset_name": "NICES Soil Moisture",
+    "source": "NICES / ISRO",
+    "start_date": "2018-01-01",
+    "end_date": "2026-06-21",
+    "spatial_resolution": "0.125 deg",
+    "temporal_resolution": "Daily",
+    "coverage_percent": 96.0,
+    "last_updated": "2026-06-21"
+  }
+]

@@ -1,0 +1,23 @@
+
+{
+  "registries": [
+    {
+      "source_name": "IMD",
+      "protocol": "FTP / HTTPS",
+      "frequency": "Daily",
+      "auth_type": "API_KEY"
+    },
+    {
+      "source_name": "MOSDAC",
+      "protocol": "HTTPS API",
+      "frequency": "Half-Hourly",
+      "auth_type": "OAuth2"
+    },
+    {
+      "source_name": "Bhuvan",
+      "protocol": "WMS / WFS",
+      "frequency": "On-demand",
+      "auth_type": "None / Public"
+    }
+  ]
+}
