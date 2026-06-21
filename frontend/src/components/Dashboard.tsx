@@ -3055,41 +3055,9 @@ export default function VayuSetuDashboard() {
               </div>
             </div>
 
-            {/* Model Confidence Card */}
-            <div className="mt-4 pt-4 border-t border-slate-800/60">
-              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🧠 Model Confidence</h2>
-              <div className="mt-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 space-y-2 text-[10px] font-mono">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Health Score</span>
-                  <span className="text-emerald-400 font-bold">{modelHealthData.model_health_pct}%</span>
-                </div>
-                <div className="w-full bg-slate-950 h-1.5 rounded overflow-hidden">
-                  <div className="h-full rounded bg-emerald-500" style={{ width: `${modelHealthData.model_health_pct}%`, boxShadow: '0 0 6px #10b981' }} />
-                </div>
-                <div className="flex justify-between items-center pt-1">
-                  <span className="text-slate-400">Drift Status</span>
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
-                    modelHealthData.drift_status === 'STABLE' ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
-                    : modelHealthData.drift_status === 'DRIFTING' ? 'bg-amber-950 text-amber-400 border-amber-800'
-                    : 'bg-red-950 text-red-400 border-red-800'
-                  }`}>{modelHealthData.drift_status}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Avg MAE</span>
-                  <span className="text-slate-200">{modelHealthData.average_error_mae} mm/°C</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">KS p-value</span>
-                  <span className={modelHealthData.ks_test_p_value > 0.05 ? 'text-emerald-400' : 'text-red-400'}>{modelHealthData.ks_test_p_value}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Retrains Done</span>
-                  <span className="text-slate-200">{modelHealthData.retrains_completed}</span>
-                </div>
-              </div>
-            </div>
 
           </section>
+
 
           {/* Panel 2: Interactive Digital Twin Map & Temporal Timeline */}
           <section className="lg:col-span-2 bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl overflow-hidden flex flex-col min-h-[350px] sm:min-h-[440px] shadow-[0_0_15px_rgba(59,130,246,0.05)]">
