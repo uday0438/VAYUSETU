@@ -3210,7 +3210,7 @@ export default function VayuSetuDashboard() {
               ></div>
 
               {timelineProjection && (
-                <div className="absolute bottom-3 left-3 right-3 z-[1000] bg-slate-950 border border-indigo-500/60 p-3 rounded-xl shadow-2xl font-mono text-[10px] text-slate-200 max-h-[56%] overflow-y-auto">
+                <div className="absolute bottom-16 left-3 right-3 z-[1000] bg-slate-950 border border-indigo-500/60 p-3 rounded-xl shadow-2xl font-mono text-[10px] text-slate-200 max-h-[56%] overflow-y-auto">
 
                   {/* Header */}
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-2 sticky top-0 bg-slate-950 z-10">
