@@ -3071,27 +3071,63 @@ export default function VayuSetuDashboard() {
                 </span>
               </div>
               
-              {/* Slider representing timelines */}
-              <div className="flex items-center gap-2 pt-1">
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="7" 
-                  value={timelineStep}
-                  onChange={(e) => setTimelineStep(parseInt(e.target.value))}
-                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                  aria-label="Digital Twin Timeline Slider"
+              {/* Custom Timeline Slider with perfect dot alignment */}
+              <div className="relative w-full px-5 pt-3 pb-8 select-none">
+                {/* Track Line */}
+                <div className="absolute top-[22px] left-5 right-5 h-1 bg-slate-800 rounded-full" />
+                
+                {/* Active Track Highlight */}
+                <div 
+                  className="absolute top-[22px] left-5 h-1 bg-indigo-500 rounded-full transition-all duration-300"
+                  style={{ 
+                    width: `calc(${(timelineStep / 7) * 100}%)` 
+                  }}
                 />
-              </div>
-              <div className="flex justify-between text-[9px] font-mono text-slate-500">
-                <span>{t("lblPast")}</span>
-                <span>{t("lblCurrent")}</span>
-                <span>{t("lbl24h")}</span>
-                <span>{t("lbl48h")}</span>
-                <span>{t("lblScenario")}</span>
-                <span>2030</span>
-                <span>2040</span>
-                <span>2050</span>
+
+                {/* Dots and Labels */}
+                <div className="relative w-full h-10">
+                  {[
+                    { val: 0, label: t("lblPast") },
+                    { val: 1, label: t("lblCurrent") },
+                    { val: 2, label: t("lbl24h") },
+                    { val: 3, label: t("lbl48h") },
+                    { val: 4, label: t("lblScenario") },
+                    { val: 5, label: "2030" },
+                    { val: 6, label: "2040" },
+                    { val: 7, label: "2050" }
+                  ].map((step, idx) => {
+                    const percent = (idx / 7) * 100;
+                    const isActive = timelineStep === idx;
+                    return (
+                      <div 
+                        key={idx}
+                        className="absolute -translate-x-1/2 flex flex-col items-center cursor-pointer group"
+                        style={{ left: `${percent}%` }}
+                        onClick={() => setTimelineStep(idx)}
+                      >
+                        {/* Dot */}
+                        <div className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-300 flex items-center justify-center mt-1
+                          ${isActive 
+                            ? "bg-indigo-500 border-indigo-400 scale-125 shadow-[0_0_8px_rgba(99,102,241,0.8)]" 
+                            : "bg-slate-950 border-slate-700 group-hover:border-slate-500 hover:scale-110"
+                          }`}
+                        >
+                          {isActive && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                        </div>
+                        
+                        {/* Label */}
+                        <span className={`mt-2 text-[9px] font-mono transition-all duration-200 whitespace-nowrap
+                          ${isActive 
+                            ? "text-indigo-400 font-bold" 
+                            : "text-slate-500 group-hover:text-slate-300"
+                          }`}
+                        >
+                          {step.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
