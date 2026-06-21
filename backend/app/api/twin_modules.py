@@ -217,6 +217,7 @@ def get_system_freshness_monitor() -> Dict[str, Any]:
 @router.get("/twin-status")
 def get_comprehensive_twin_status() -> Dict[str, Any]:
     """Serve a complete overview status pane for the digital twin's control bar."""
+    from app.services.drift_alerting import get_drift_alerts
     cov = coverage_trk.get_system_coverage()
     fresh = freshness_mon.get_freshness_status()
     trust = trust_calc.calculate_trust_score(
@@ -234,5 +235,6 @@ def get_comprehensive_twin_status() -> Dict[str, Any]:
         "overall_coverage_pct": cov["overall_score"],
         "overall_freshness_score": fresh["freshness_score"],
         "twin_trust_score": trust["trust_score"],
-        "trust_category": trust["category"]
+        "trust_category": trust["category"],
+        "drift_alerts": get_drift_alerts()
     }

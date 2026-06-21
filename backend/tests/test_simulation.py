@@ -91,5 +91,44 @@ class TestHydrologicalSimulation(unittest.TestCase):
         sm_grid = ingestor.parse_era5_soil_moisture("mock_era5.nc")
         self.assertEqual(sm_grid.shape, (16, 16))
 
+    def test_parse_imd_binary(self):
+        """Test parser for raw IMD gridded binary files (.bin)."""
+        import numpy as np
+        from app.services.data_pipeline import parse_imd_binary
+        
+        file_path = "temp_test_imd.bin"
+        lat_points, lon_points = 135, 129
+        expected_size = lat_points * lon_points
+        
+        # Create test grid data with nan, 99.9 and -99.9 values
+        test_data = np.random.rand(expected_size).astype(np.float32)
+        test_data[10] = -99.9
+        test_data[20] = 99.9
+        test_data[30] = np.nan
+        
+        # Write to temporary file
+        test_data.tofile(file_path)
+        
+        try:
+            grid = parse_imd_binary(file_path, lat_points, lon_points)
+            self.assertEqual(grid.shape, (lat_points, lon_points))
+            # Check sanitization
+            self.assertEqual(grid[0, 10], 0.0) # 10th index fits in first row
+            self.assertEqual(grid[0, 20], 0.0)
+            self.assertEqual(grid[0, 30], 0.0)
+        finally:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
+    def test_daily_ingestion_worker(self):
+        """Test daily scheduler ingestion pipeline and logging."""
+        from app.services.daily_ingestion_worker import DailyIngestionWorker
+        worker = DailyIngestionWorker(data_dir="temp_test_data")
+        res = worker.run_daily_update("2026-06-21")
+        self.assertEqual(res["status"], "SUCCESS")
+        self.assertIn("twin_version", res)
+        self.assertIn("assimilation_run_id", res)
+        self.assertIn("drift_report", res)
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Dict, Any, List
+from pydantic import BaseModel, Field
 
 class DataPipeline:
     """
@@ -129,3 +130,42 @@ class DataPipeline:
         features["latest_raw_temp"] = latest_temp
         features["latest_raw_rain"] = latest_rain
         return features
+
+class ClimateGridSchema(BaseModel):
+    """Strict schema validation for the IMD 0.25 x 0.25 precipitation grid."""
+    lat_dims: int = Field(..., ge=1, le=150, description="Grid latitude points")
+    lon_dims: int = Field(..., ge=1, le=150, description="Grid longitude points")
+    grid_data: List[List[float]] = Field(..., description="2D matrix of gridded climate values")
+
+def parse_imd_binary(file_path: str, lat_points: int = 135, lon_points: int = 129) -> np.ndarray:
+    """
+    Vectorized parser for raw IMD gridded binary files (.bin).
+    Handles missing values dynamically to prevent downstream tensor corruption.
+    """
+    try:
+        # Step 1: Read binary data using high-speed NumPy stream execution
+        raw_data = np.fromfile(file_path, dtype=np.float32)
+        
+        # Step 2: Reshape data matching the exact geographic bounds
+        expected_size = lat_points * lon_points
+        if raw_data.size != expected_size:
+            raise ValueError(f"Data size {raw_data.size} mismatches grid metrics {expected_size}")
+            
+        grid = raw_data.reshape((lat_points, lon_points))
+        
+        # Step 3: Sanitize missing data outliers (-99.9 or 99.9 flag variations)
+        grid[(grid == -99.9) | (grid == 99.9) | (np.isnan(grid))] = 0.0
+        
+        # Step 4: Validate via Pydantic Schema layer
+        validated_payload = ClimateGridSchema(
+            lat_dims=lat_points,
+            lon_dims=lon_points,
+            grid_data=grid.tolist()
+        )
+        
+        return np.array(validated_payload.grid_data)
+        
+    except Exception as e:
+        print(f"[CRITICAL INGESTION ERROR] Failed parsing grid pack: {str(e)}")
+        raise e
+
