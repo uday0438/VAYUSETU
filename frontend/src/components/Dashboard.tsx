@@ -3210,52 +3210,50 @@ export default function VayuSetuDashboard() {
               ></div>
 
               {timelineProjection && (
-                <div className="absolute bottom-3 left-3 right-3 z-[1000] bg-slate-950/97 border border-indigo-500/50 p-2.5 rounded-lg shadow-xl font-mono text-[10px] backdrop-blur-md text-slate-200 max-h-[55%] overflow-y-auto">
+                <div style={{background:'#090f1a',border:'1px solid #4f46e5',borderRadius:'10px',padding:'10px 12px',position:'absolute',bottom:'12px',left:'12px',right:'12px',zIndex:1000,fontFamily:'monospace',fontSize:'11px',color:'#e2e8f0',maxHeight:'58%',overflowY:'auto',boxShadow:'0 8px 32px rgba(0,0,0,0.8)'}}>
                   {/* Header */}
-                  <div className="flex items-center gap-2 text-indigo-300 font-bold border-b border-slate-800 pb-1.5 mb-2 uppercase sticky top-0 bg-slate-950/97">
-                    <span>⚠️ SSP2-4.5 Projection Pathway ({timelineProjection.year})</span>
-                    <span className="text-[9px] bg-indigo-600 text-white border border-indigo-400 px-2 py-0.5 rounded ml-auto font-mono font-bold tracking-wide">{timelineProjection.scenario}</span>
+                  <div style={{display:'flex',alignItems:'center',gap:'8px',borderBottom:'1px solid #1e293b',paddingBottom:'8px',marginBottom:'10px',position:'sticky',top:0,background:'#090f1a',zIndex:1}}>
+                    <span style={{color:'#818cf8',fontWeight:'bold',textTransform:'uppercase',fontSize:'11px'}}>⚠️ SSP2-4.5 Projection Pathway ({timelineProjection.year})</span>
+                    <span style={{marginLeft:'auto',background:'#4f46e5',color:'#fff',border:'1px solid #6366f1',padding:'2px 8px',borderRadius:'4px',fontSize:'9px',fontWeight:'bold',letterSpacing:'0.05em'}}>{timelineProjection.scenario}</span>
                   </div>
 
-                  {/* Stats row — nowrap so values never break to next line */}
-                  <div className="grid grid-cols-4 gap-1.5 border-b border-slate-900 pb-2 mb-2">
-                    <div className="bg-slate-900/60 rounded px-1.5 py-1 border border-slate-800">
-                      <div className="text-slate-500 text-[8px] mb-0.5">🌡️ Temp Anomaly</div>
-                      <div className="text-white font-bold whitespace-nowrap">+{timelineProjection.temperature_anomaly_c}°C</div>
-                    </div>
-                    <div className="bg-slate-900/60 rounded px-1.5 py-1 border border-slate-800">
-                      <div className="text-slate-500 text-[8px] mb-0.5">🌧️ Precip Shift</div>
-                      <div className="text-white font-bold whitespace-nowrap">+{timelineProjection.precipitation_shift_pct}%</div>
-                    </div>
-                    <div className="bg-slate-900/60 rounded px-1.5 py-1 border border-slate-800">
-                      <div className="text-slate-500 text-[8px] mb-0.5">🌊 Sea Level Rise</div>
-                      <div className="text-white font-bold whitespace-nowrap">+{timelineProjection.sea_level_rise_cm} cm</div>
-                    </div>
-                    <div className="bg-slate-900/60 rounded px-1.5 py-1 border border-slate-800">
-                      <div className="text-slate-500 text-[8px] mb-0.5">🌾 Crop Stress</div>
-                      <div className="text-red-400 font-bold whitespace-nowrap">{timelineProjection.crop_yield_stress_multiplier}x</div>
-                    </div>
+                  {/* 4 stat cards — fully solid, never wrap */}
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'6px',borderBottom:'1px solid #1e293b',paddingBottom:'10px',marginBottom:'10px'}}>
+                    {[
+                      {icon:'🌡️', label:'Temp Anomaly', value:`+${timelineProjection.temperature_anomaly_c}°C`, color:'#f87171'},
+                      {icon:'🌧️', label:'Precip Shift',  value:`+${timelineProjection.precipitation_shift_pct}%`, color:'#60a5fa'},
+                      {icon:'🌊', label:'Sea Level Rise', value:`+${timelineProjection.sea_level_rise_cm} cm`, color:'#34d399'},
+                      {icon:'🌾', label:'Crop Stress',   value:`${timelineProjection.crop_yield_stress_multiplier}x`, color:'#fbbf24'},
+                    ].map(s => (
+                      <div key={s.label} style={{background:'#0f172a',border:'1px solid #1e293b',borderRadius:'6px',padding:'6px 8px'}}>
+                        <div style={{color:'#64748b',fontSize:'9px',marginBottom:'3px'}}>{s.icon} {s.label}</div>
+                        <div style={{color:s.color,fontWeight:'bold',fontSize:'13px',whiteSpace:'nowrap'}}>{s.value}</div>
+                      </div>
+                    ))}
                   </div>
 
                   {/* Crop Kc Cards */}
                   {timelineProjection.crop_kc_projections && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'8px'}}>
                       {Object.entries(timelineProjection.crop_kc_projections).map(([crop, data]: [string, any]) => (
-                        <div key={crop} className="bg-slate-900 p-2 rounded-lg border border-slate-700">
-                          <div className="flex justify-between items-center mb-1.5">
-                            <span className="font-bold text-emerald-300 uppercase text-[9px] tracking-wide">🌾 {crop} Kc</span>
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-red-300 border border-slate-700">
+                        <div key={crop} style={{background:'#0f172a',border:'1px solid #334155',borderRadius:'8px',padding:'8px'}}>
+                          {/* Crop header */}
+                          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
+                            <span style={{color:'#6ee7b7',fontWeight:'bold',fontSize:'10px',textTransform:'uppercase'}}>🌾 {crop} Kc</span>
+                            <span style={{background:'#1e293b',color:'#fca5a5',border:'1px solid #374151',padding:'2px 6px',borderRadius:'4px',fontSize:'9px',fontWeight:'bold'}}>
                               Loss: {data.yield_loss_pct}%
                             </span>
                           </div>
-                          <div className="text-slate-400 text-[9px] mb-1.5">
-                            Irrigation: <span className="text-amber-300 font-semibold">{data.irrigation_multiplier}x</span>
+                          {/* Irrigation */}
+                          <div style={{color:'#94a3b8',fontSize:'9px',marginBottom:'6px'}}>
+                            Irrigation: <span style={{color:'#fcd34d',fontWeight:'bold'}}>{data.irrigation_multiplier}x</span>
                           </div>
-                          <div className="grid grid-cols-4 gap-1">
+                          {/* Stage cells */}
+                          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'4px'}}>
                             {data.stages.map((stage: string, idx: number) => (
-                              <div key={stage} className="bg-slate-950 p-1 rounded border border-slate-800 text-center">
-                                <div className="text-[8px] text-slate-400 font-mono leading-tight" title={stage}>{stage}</div>
-                                <div className="text-indigo-300 font-bold text-[10px] mt-0.5">{data.kc_values[idx].toFixed(2)}</div>
+                              <div key={stage} style={{background:'#020617',border:'1px solid #1e293b',borderRadius:'4px',padding:'4px 2px',textAlign:'center'}}>
+                                <div style={{color:'#94a3b8',fontSize:'8px',marginBottom:'2px',lineHeight:'1.2'}}>{stage}</div>
+                                <div style={{color:'#a5b4fc',fontWeight:'bold',fontSize:'11px'}}>{data.kc_values[idx].toFixed(2)}</div>
                               </div>
                             ))}
                           </div>
@@ -3265,6 +3263,7 @@ export default function VayuSetuDashboard() {
                   )}
                 </div>
               )}
+
 
 
               {mapType === "globe" && (
