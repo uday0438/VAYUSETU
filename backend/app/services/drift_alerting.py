@@ -7,11 +7,9 @@ from app.services.data_pipeline import parse_imd_binary
 _drift_alerts = []
 
 def get_drift_alerts():
-    global _drift_alerts
     return _drift_alerts
 
 def clear_drift_alerts():
-    global _drift_alerts
     _drift_alerts.clear()
 
 def calculate_mase(y_true: np.ndarray, y_pred: np.ndarray, y_train: np.ndarray) -> float:
@@ -41,8 +39,6 @@ def check_forecast_drift(
     Computes MASE between the newly ingested ground-truth IMD grid binary
     and the 7-day-prior forecasts. Creates an alert if MASE exceeds threshold.
     """
-    global _drift_alerts
-    
     try:
         # Load and sanitize the new ground-truth grid
         ground_truth = parse_imd_binary(ground_truth_path)

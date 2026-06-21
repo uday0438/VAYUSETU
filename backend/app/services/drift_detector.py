@@ -6,7 +6,6 @@ _retrain_count = 0
 _history_errors = [1.2, 1.4, 1.1, 1.5, 1.8, 1.9, 2.1, 2.3]  # recent prediction errors (MAE in mm/°C)
 
 def get_retrain_count() -> int:
-    global _retrain_count
     return _retrain_count
 
 def trigger_model_retrain() -> None:
@@ -16,13 +15,11 @@ def trigger_model_retrain() -> None:
     _history_errors = [random.uniform(0.8, 1.2) for _ in range(5)]
 
 def record_prediction_error(error: float) -> None:
-    global _history_errors
     _history_errors.append(error)
     if len(_history_errors) > 20:
         _history_errors.pop(0)
 
 def compute_model_health_and_drift(district: str = "Visakhapatnam") -> Dict[str, Any]:
-    global _history_errors, _retrain_count
     
     # Calculate average error
     avg_error = sum(_history_errors) / len(_history_errors) if _history_errors else 1.2
