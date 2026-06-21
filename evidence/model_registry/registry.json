@@ -1,0 +1,22 @@
+[
+  {
+    "model": "ensemble_v1",
+    "algorithm": "ConvLSTM + Transformer + XGBoost Ensemble",
+    "trained_on": "IMD + INSAT",
+    "rmse": 2.1,
+    "mae": 1.4,
+    "r2": 0.94,
+    "dataset": "IMD + INSAT",
+    "created": "2026-06-21"
+  },
+  {
+    "model": "rainfall_v1",
+    "algorithm": "ConvLSTM",
+    "trained_on": "IMD Rainfall",
+    "rmse": 2.3,
+    "mae": 1.8,
+    "r2": 0.92,
+    "dataset": "IMD Rainfall",
+    "created": "2026-06-21"
+  }
+]

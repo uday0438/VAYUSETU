@@ -1,0 +1,12 @@
+{
+  "rainfall_rmse": 2.3,
+  "rainfall_mae": 1.8,
+  "rainfall_r2": 0.92,
+  "rainfall_mape": 12.4,
+  "rainfall_correlation": 0.94,
+  "temperature_rmse": 0.8,
+  "temperature_mae": 0.5,
+  "temperature_r2": 0.95,
+  "temperature_mape": 2.1,
+  "temperature_correlation": 0.97
+}

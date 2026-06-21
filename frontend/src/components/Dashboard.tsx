@@ -310,6 +310,7 @@ export default function VayuSetuDashboard() {
   // Dynamic Model Metrics
   const [accuracy, setAccuracy] = useState("92.4");
   const [drift, setDrift] = useState("1.8");
+  const [twinMode, setTwinMode] = useState<"demo" | "research">("demo");
 
   // Splash Screen States
   const [showSplash, setShowSplash] = useState(true);
@@ -624,6 +625,12 @@ export default function VayuSetuDashboard() {
     const fetchDistrictTwinData = async () => {
       if (!selectedDistrict) return;
       try {
+        const modeRes = await fetch(`${API_BASE}/api/v1/climate/operational/get-mode`);
+        if (modeRes.ok) {
+          const modeData = await modeRes.json();
+          setTwinMode(modeData.mode);
+        }
+        
         // 1. Fetch live telemetry from database (includes advisories and Kalman status)
         const liveRes = await fetch(`${API_BASE}/api/v1/climate/live-state?district=${encodeURIComponent(selectedDistrict)}`);
         if (liveRes.ok) {
@@ -1497,6 +1504,21 @@ export default function VayuSetuDashboard() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const toggleTwinMode = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/climate/operational/toggle-mode`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setTwinMode(data.mode);
+        setToastMessage(`Switched Digital Twin Mode to: ${data.mode.toUpperCase()}`);
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } catch (err) {
+      setToastMessage("Failed to toggle mode.");
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -2089,6 +2111,19 @@ export default function VayuSetuDashboard() {
                 <div className="bg-slate-900/60 p-2 rounded border border-slate-800/40">
                   <span className="text-[9px] text-slate-500 block">FORECAST HORIZON</span>
                   <span className="text-slate-200 font-bold">48h Spatial Grid</span>
+                </div>
+                <div 
+                  onClick={toggleTwinMode}
+                  className="bg-slate-900/60 p-2 rounded border border-slate-800/40 col-span-2 flex items-center justify-between cursor-pointer hover:bg-[#134074] hover:text-white transition shadow-[0_0_8px_rgba(99,102,241,0.15)] group"
+                  title="Click to toggle between Research and Demo modes"
+                >
+                  <div>
+                    <span className="text-[9px] text-slate-500 block group-hover:text-slate-300">TWIN OPERATION MODE</span>
+                    <span className={twinMode === "research" ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                      {twinMode === "research" ? "🔬 RESEARCH MODE (Real Data)" : "📺 DEMO MODE (Simulated Stream)"}
+                    </span>
+                  </div>
+                  <span className="text-xs text-slate-400">🔄</span>
                 </div>
               </div>
             </div>

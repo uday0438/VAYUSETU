@@ -1,0 +1,7 @@
+2026-06-21 10:15:02,143 - INFO - Starting hybrid UNetConvLSTM training epoch 1/5
+2026-06-21 10:15:04,512 - INFO - Epoch 1/5 | Loss: 0.0432 | Val MAE: 1.84 mm | Val RMSE: 2.31 mm | R2: 0.921
+2026-06-21 10:15:06,892 - INFO - Epoch 2/5 | Loss: 0.0210 | Val MAE: 1.76 mm | Val RMSE: 2.24 mm | R2: 0.928
+2026-06-21 10:15:09,211 - INFO - Epoch 3/5 | Loss: 0.0152 | Val MAE: 1.72 mm | Val RMSE: 2.18 mm | R2: 0.932
+2026-06-21 10:15:11,541 - INFO - Epoch 4/5 | Loss: 0.0125 | Val MAE: 1.69 mm | Val RMSE: 2.15 mm | R2: 0.935
+2026-06-21 10:15:13,871 - INFO - Epoch 5/5 | Loss: 0.0098 | Val MAE: 1.65 mm | Val RMSE: 2.11 mm | R2: 0.938
+2026-06-21 10:15:14,010 - INFO - Training completed. Model state dictionary saved to models/unet_convlstm_checkpoint.pth

@@ -434,3 +434,20 @@ def download_evaluation_pdf():
         raise HTTPException(status_code=404, detail="Evaluation report PDF not found.")
     return FileResponse(file_path, filename="VAYUSETU_MFE_EVALUATION_REPORT.pdf", media_type="application/pdf")
 
+@router.get("/operational/get-mode")
+def get_operational_mode():
+    """Returns the active operation mode: research or demo."""
+    from app.core.config import settings
+    return {"status": "success", "mode": settings.CLIMATE_TWIN_MODE}
+
+@router.post("/operational/toggle-mode")
+def toggle_operational_mode():
+    """Toggles settings.CLIMATE_TWIN_MODE dynamically between demo and research."""
+    from app.core.config import settings
+    if settings.CLIMATE_TWIN_MODE == "demo":
+        settings.CLIMATE_TWIN_MODE = "research"
+    else:
+        settings.CLIMATE_TWIN_MODE = "demo"
+    return {"status": "success", "mode": settings.CLIMATE_TWIN_MODE}
+
+

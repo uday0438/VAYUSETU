@@ -13,5 +13,7 @@ class Settings:
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001"]
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/vayusetu")
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    CLIMATE_TWIN_MODE: str = os.getenv("CLIMATE_TWIN_MODE", "demo") # "demo" or "research"
 
 settings = Settings()
+
