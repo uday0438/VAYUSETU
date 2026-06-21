@@ -56,7 +56,7 @@ class ClimateCopilotService:
             return (
                 f"In {district}, current rainfall baseline is {rain:.1f} mm. "
                 f"A 20% increase raises it to {projected:.1f} mm. "
-                f"With soil saturation at {sm:.1f}%, our hydrological model projects Flood Risk rising to ~{flood_proj:.0f}/100. "
+                f"With soil saturation at {sm:.1f}%, our hydrological model projects increased surface runoff and Flood Risk rising to ~{flood_proj:.0f}/100. "
                 "Recommend pre-positioning disaster response teams in low-lying catchment zones."
             )
 
