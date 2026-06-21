@@ -1,0 +1,8 @@
+{
+  "model_name": "VAYUSETU-Hybrid-Ensemble",
+  "version": "2.1.0-Ensemble",
+  "rmse": 1.48,
+  "mae": 1.12,
+  "r2": 0.94,
+  "created_at": "2026-06-21T08:33:00Z"
+}
