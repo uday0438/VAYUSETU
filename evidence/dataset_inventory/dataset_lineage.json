@@ -1,0 +1,123 @@
+{
+  "project": "VAYUSETU Climate Digital Twin",
+  "version": "2.1.0",
+  "generated_at": "2026-06-21T11:00:00+05:30",
+  "datasets": [
+    {
+      "id": "IMD_RAINFALL",
+      "name": "IMD Gridded Rainfall",
+      "source": "India Meteorological Department (IMD)",
+      "url": "https://www.imdpune.gov.in/cmpg/Griddata/Rainfall_25_Bin.html",
+      "format": "CSV / Binary (0.25° × 0.25°)",
+      "spatial_resolution": "0.25° × 0.25°",
+      "temporal_resolution": "Daily",
+      "coverage": "All India (6.5°N–38.5°N, 66.5°E–100°E)",
+      "period": "1901–2024",
+      "variables": ["rainfall_mm"],
+      "usage": "Primary rainfall training target and validation ground truth",
+      "local_path": "datasets/imd/rainfall/",
+      "citation": "Pai et al. (2014), Development of a new high spatial resolution (0.25° × 0.25°) long period (1901-2010) daily gridded rainfall data set over India, Mausam, 65(1), 1-18"
+    },
+    {
+      "id": "IMD_MAXTEMP",
+      "name": "IMD Gridded Maximum Temperature",
+      "source": "India Meteorological Department (IMD)",
+      "url": "https://www.imdpune.gov.in/cmpg/Griddata/Max_1_Bin.html",
+      "format": "CSV / Binary (1° × 1°)",
+      "spatial_resolution": "1° × 1°",
+      "temporal_resolution": "Daily",
+      "coverage": "All India",
+      "period": "1951–2024",
+      "variables": ["max_temp_c"],
+      "usage": "Heatwave detection, temperature prediction training",
+      "local_path": "datasets/imd/max_temp/",
+      "citation": "Srivastava et al. (2009), Development of a high resolution daily gridded temperature data set (1969-2005) for the Indian region, MAUSAM"
+    },
+    {
+      "id": "IMD_MINTEMP",
+      "name": "IMD Gridded Minimum Temperature",
+      "source": "India Meteorological Department (IMD)",
+      "url": "https://www.imdpune.gov.in/cmpg/Griddata/Min_1_Bin.html",
+      "format": "CSV / Binary (1° × 1°)",
+      "spatial_resolution": "1° × 1°",
+      "temporal_resolution": "Daily",
+      "coverage": "All India",
+      "period": "1951–2024",
+      "variables": ["min_temp_c"],
+      "usage": "Cold wave detection, diurnal range analysis",
+      "local_path": "datasets/imd/min_temp/",
+      "citation": "Srivastava et al. (2009)"
+    },
+    {
+      "id": "INSAT_LST",
+      "name": "INSAT-3D/3DR Land Surface Temperature",
+      "source": "MOSDAC (ISRO)",
+      "url": "https://mosdac.gov.in/",
+      "format": "NetCDF / HDF5",
+      "spatial_resolution": "4 km (Sounder), 10 km (Imager)",
+      "temporal_resolution": "Half-hourly",
+      "coverage": "Indian subcontinent and surrounding oceanic region",
+      "period": "2014–present",
+      "variables": ["LST"],
+      "usage": "Urban heat island detection, drought assessment (TVDI computation)",
+      "local_path": "datasets/insat/lst/",
+      "citation": "ISRO MOSDAC Data Portal, INSAT-3D/3DR Level-2B Products"
+    },
+    {
+      "id": "INSAT_SST",
+      "name": "INSAT-3D/3DR Sea Surface Temperature",
+      "source": "MOSDAC (ISRO)",
+      "url": "https://mosdac.gov.in/",
+      "format": "NetCDF / HDF5",
+      "spatial_resolution": "4 km",
+      "temporal_resolution": "Half-hourly / Daily composite",
+      "coverage": "Indian Ocean Region (IOR)",
+      "period": "2014–present",
+      "variables": ["SST"],
+      "usage": "Monsoon onset prediction, cyclone intensity estimation, marine heatwave detection",
+      "local_path": "datasets/insat/sst/",
+      "citation": "ISRO MOSDAC Data Portal, INSAT-3D/3DR Level-2B SST Products"
+    },
+    {
+      "id": "INSAT_RAINFALL",
+      "name": "INSAT-3D/3DR Rainfall Estimation (HEM/IMSRA)",
+      "source": "MOSDAC (ISRO)",
+      "url": "https://mosdac.gov.in/",
+      "format": "NetCDF / HDF5",
+      "spatial_resolution": "0.25° (IMSRA), 10 km (HEM)",
+      "temporal_resolution": "Half-hourly / Daily",
+      "coverage": "Indian subcontinent",
+      "period": "2014–present",
+      "variables": ["rainfall_mm"],
+      "usage": "Near-real-time rainfall monitoring, flood early warning",
+      "local_path": "datasets/insat/rainfall/",
+      "citation": "Mishra et al. (2019), Satellite-derived precipitation estimates over India, J. Earth Syst. Sci."
+    }
+  ],
+  "derived_indices": [
+    {
+      "name": "TVDI (Temperature Vegetation Dryness Index)",
+      "formula": "(LST - LST_min) / (LST_max - LST_min)",
+      "inputs": ["INSAT_LST", "NDVI"],
+      "usage": "Agricultural drought detection"
+    },
+    {
+      "name": "ESI (Evaporative Stress Index)",
+      "formula": "(ET - ET_ref) / ET_ref",
+      "inputs": ["INSAT_LST", "IMD_MAXTEMP"],
+      "usage": "Water stress assessment"
+    },
+    {
+      "name": "RAI (Rainfall Anomaly Index)",
+      "formula": "(P - P_mean) / P_std",
+      "inputs": ["IMD_RAINFALL"],
+      "usage": "Monsoon anomaly detection"
+    }
+  ],
+  "data_pipeline": {
+    "ingestion": "ai_engine/data/imd_loader.py, ai_engine/data/insat_loader.py",
+    "quality_control": "backend/app/services/data_pipeline.py",
+    "feature_engineering": "ai_engine/data_pipeline/data_pipeline.py",
+    "dataset_builder": "ai_engine/data/dataset_builder.py"
+  }
+}

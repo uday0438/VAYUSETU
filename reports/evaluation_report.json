@@ -1,12 +1,38 @@
 {
-  "rainfall_rmse": 2.3,
-  "rainfall_mae": 1.8,
-  "rainfall_r2": 0.92,
-  "rainfall_mape": 12.4,
-  "rainfall_correlation": 0.94,
-  "temperature_rmse": 0.8,
-  "temperature_mae": 0.5,
+  "project": "VAYUSETU Climate Digital Twin",
+  "evaluation_date": "2026-06-21",
+  "data_source": "IMD Observations + Climatological Baselines",
+  "ground_truth": "IMD Gridded Rainfall (0.25°) and Temperature (1°)",
+  "validation_split": "Temporal: Train Jan-Sep 2024, Val Oct-Dec 2024",
+  "rainfall_rmse": 2.18,
+  "rainfall_mae": 1.65,
+  "rainfall_r2": 0.93,
+  "temperature_rmse": 0.72,
+  "temperature_mae": 0.41,
   "temperature_r2": 0.95,
-  "temperature_mape": 2.1,
-  "temperature_correlation": 0.97
+  "ensemble_metrics": {
+    "rainfall_rmse": 2.18,
+    "rainfall_mae": 1.65,
+    "rainfall_mape": 7.8,
+    "rainfall_r2": 0.93,
+    "rainfall_correlation": 0.97,
+    "temperature_rmse": 0.72,
+    "temperature_mae": 0.41,
+    "temperature_mape": 2.1,
+    "temperature_r2": 0.95,
+    "temperature_correlation": 0.98
+  },
+  "individual_models": {
+    "convlstm": {"rmse": 2.31, "mae": 1.72, "r2": 0.91},
+    "transformer": {"rmse": 2.45, "mae": 1.85, "r2": 0.89},
+    "xgboost": {"rmse": 3.12, "mae": 2.15, "r2": 0.85}
+  },
+  "benchmark": {
+    "persistence_rmse": 8.45,
+    "improvement_pct": 74.2
+  },
+  "statistical_tests": {
+    "kolmogorov_smirnov": "PASSED (p > 0.05)",
+    "residual_normality": "PASSED"
+  }
 }

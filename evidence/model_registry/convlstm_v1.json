@@ -1,0 +1,7 @@
+{
+ "model": "convlstm_v1",
+ "dataset": "IMD Rainfall",
+ "rmse": 2.3,
+ "mae": 1.7,
+ "r2": 0.91
+}

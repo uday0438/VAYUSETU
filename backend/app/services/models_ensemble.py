@@ -189,26 +189,36 @@ def get_ensemble_forecast(base_val: float, parameter: str, district: str = "Visa
     final_prediction = 0.4 * convlstm_pred + 0.4 * transformer_pred + 0.2 * xgb_pred
     final_prediction = round(final_prediction, 1)
     
-    # 7. Uncertainty Quantification
-    vals = [convlstm_pred, transformer_pred, xgb_pred]
-    mean = sum(vals) / 3.0
-    variance = sum((x - mean) ** 2 for x in vals) / 3.0
-    std_dev = (variance) ** 0.5
-    uncertainty = round(max(0.2 if parameter == "temperature" else 2.0, std_dev * 1.96), 1)
+    # 7. Uncertainty Quantification using the UncertaintyEngine
+    from uncertainty.uncertainty_engine import UncertaintyEngine
+    engine = UncertaintyEngine()
     
-    confidence = round(max(75.0, min(99.0, 100.0 - (uncertainty / base_val * 100.0) if base_val > 0 else 95.0)), 1)
+    ensemble_members = {
+        "convlstm": convlstm_pred,
+        "transformer": transformer_pred,
+        "xgboost": xgb_pred
+    }
+    
+    uq_result = engine.quantify(
+        {"value": final_prediction},
+        parameter=parameter,
+        ensemble_members=ensemble_members
+    )
     
     unit = "mm" if parameter == "rainfall" else "°C"
     
     return {
         "parameter": parameter,
         "unit": unit,
-        "ensemble_prediction": final_prediction,
-        "confidence_pct": confidence,
-        "uncertainty_range": f"±{uncertainty}",
+        "ensemble_prediction": uq_result["value"],
+        "confidence_pct": uq_result["confidence_pct"],
+        "uncertainty_range": f"±{uq_result['ensemble_spread'] * 1.645:.1f}",
+        "range_bounds": [uq_result["lower_bound"], uq_result["upper_bound"]],
+        "reliability_class": uq_result["reliability_class"],
         "models": {
             "ConvLSTM-Precip": round(convlstm_pred, 1),
             "TFT-Temp": round(transformer_pred, 1),
             "XGBoost-LST": round(xgb_pred, 1)
         }
     }
+

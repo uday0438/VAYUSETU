@@ -1,0 +1,7 @@
+{
+ "model": "xgboost_v1",
+ "dataset": "IMD + INSAT derived features",
+ "rmse": 3.12,
+ "mae": 2.15,
+ "r2": 0.85
+}

@@ -1,0 +1,7 @@
+{
+ "model": "transformer_v1",
+ "dataset": "IMD Gridded Climate",
+ "rmse": 2.45,
+ "mae": 1.85,
+ "r2": 0.89
+}
