@@ -1305,7 +1305,23 @@ export default function VayuSetuDashboard() {
     markersRef.current = newMarkers;
     setMapReady(true);
 
+    // Initial resize trigger to calculate viewport sizes correctly
+    setTimeout(() => {
+      if (mapInstance) {
+        mapInstance.invalidateSize();
+      }
+    }, 200);
+
+    // Handle window resize dynamically to prevent layout rendering glitches (freezing/getting stuck)
+    const handleResize = () => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
+      }
+    };
+    window.addEventListener("resize", handleResize);
+
     return () => {
+      window.removeEventListener("resize", handleResize);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -1336,6 +1352,30 @@ export default function VayuSetuDashboard() {
 
     tileLayerRef.current.setUrl(url);
   }, [mapType, isDarkMode]);
+
+  // Recalculate map size when map type changes (crucial when switching back from 3D Globe to prevent stuck viewport)
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    if (mapType !== "globe") {
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.invalidateSize();
+        }
+      }, 150);
+    }
+  }, [mapType, mapReady]);
+
+  // Fly/pan to selected district when it changes (ensures map centers and follows the user's active focus)
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const distInfo = getDistrictInfo(selectedDistrict);
+    if (distInfo && distInfo.coords) {
+      mapRef.current.flyTo(distInfo.coords as L.LatLngExpression, mapRef.current.getZoom(), {
+        animate: true,
+        duration: 1.5
+      });
+    }
+  }, [selectedDistrict, mapReady]);
 
   // Dynamically update map marker styles and popup details based on risk scores
   useEffect(() => {
