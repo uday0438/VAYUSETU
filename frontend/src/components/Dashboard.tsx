@@ -3658,24 +3658,24 @@ export default function VayuSetuDashboard() {
           {/* Column 2: Model Health & Performance Monitoring */}
           <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-3 sm:p-5 space-y-4 sm:space-y-6 shadow-[0_0_15px_rgba(59,130,246,0.05)]">
             <div>
-              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🛡️ Model Health & Drift Monitor</h2>
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("modelHealthDriftTitle")}</h2>
               <div className="mt-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 space-y-2 text-[11px]">
                 <div className="flex justify-between text-slate-300 font-mono">
-                  <span>Model Health:</span>
+                  <span>{t("modelHealth")}:</span>
                   <span className="text-emerald-400 font-semibold">{modelHealthData.model_health_pct}%</span>
                 </div>
                 <div className="flex justify-between text-slate-300 font-mono">
-                  <span>Drift Status:</span>
+                  <span>{t("driftStatus")}:</span>
                   <span className={`font-semibold ${modelHealthData.drift_status === 'STABLE' ? 'text-emerald-400' : 'text-amber-400 animate-pulse'}`}>
-                    {modelHealthData.drift_status}
+                    {modelHealthData.drift_status === 'STABLE' ? t("stable") : modelHealthData.drift_status}
                   </span>
                 </div>
                 <div className="flex justify-between text-slate-300 font-mono">
-                  <span>Prediction MAE:</span>
+                  <span>{t("predictionMae")}:</span>
                   <span className="text-slate-200 font-semibold">{modelHealthData.average_error_mae} mm/°C</span>
                 </div>
                 <div className="flex justify-between text-slate-300 font-mono pb-2 border-b border-slate-800/40">
-                  <span>KS-Test p-val:</span>
+                  <span>{t("ksTestPval")}:</span>
                   <span className="text-slate-400">{modelHealthData.ks_test_p_value}</span>
                 </div>
                 
@@ -3698,9 +3698,9 @@ export default function VayuSetuDashboard() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        Retraining...
+                        {t("retraining")}
                       </span>
-                    ) : "🔄 Retrain AI"}
+                    ) : t("retrainAi")}
                   </button>
                   <button 
                     onClick={() => setMetricsModalOpen(true)}
@@ -3715,12 +3715,12 @@ export default function VayuSetuDashboard() {
 
             {/* Unified Digital Twin Trust Gauge & Diagnostics */}
             <div className="pt-4 border-t border-slate-800/60 text-slate-200">
-              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🔬 Digital Twin Trust Gauge</h2>
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("trustGaugeTitle")}</h2>
               <div className="mt-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 space-y-3">
                 {/* Trust Score bar */}
                 <div className="flex justify-between items-center text-xs">
-                  <span>Twin Trust Index:</span>
-                  <span className="font-mono font-bold text-indigo-400">93.4/100 (EXCELLENT)</span>
+                  <span>{t("twinTrustIndex")}:</span>
+                  <span className="font-mono font-bold text-indigo-400">93.4/100 ({t("passed")})</span>
                 </div>
                 <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden p-0.5 border border-slate-800">
                   <div className="h-full rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]" style={{ width: "93.4%" }}></div>
@@ -3728,25 +3728,25 @@ export default function VayuSetuDashboard() {
 
                 {/* Sub-metrics */}
                 <div className="grid grid-cols-2 gap-2 pt-2 text-[10px] font-mono border-b border-slate-800/40 pb-2 text-slate-400">
-                  <div>Data Coverage: <span className="text-white font-sans font-semibold">92.4%</span></div>
-                  <div>Data Freshness: <span className="text-white font-sans font-semibold">85.0%</span></div>
-                  <div>Assimilator Success: <span className="text-white font-sans font-semibold">95.0%</span></div>
-                  <div>Model Confidence: <span className="text-white font-sans font-semibold">91.0%</span></div>
+                  <div>{t("dataCoverage")}: <span className="text-white font-sans font-semibold">92.4%</span></div>
+                  <div>{t("dataFreshness")}: <span className="text-white font-sans font-semibold">85.0%</span></div>
+                  <div>{t("assimilatorSuccess")}: <span className="text-white font-sans font-semibold">95.0%</span></div>
+                  <div>{t("modelConfidence")}: <span className="text-white font-sans font-semibold">91.0%</span></div>
                 </div>
 
                 {/* Assimilation Cycle Status */}
                 <div className="pt-1 text-[9px] font-mono text-slate-500 leading-normal space-y-0.5">
                   <div className="flex justify-between">
-                    <span>Assimilation Engine:</span>
+                    <span>{t("assimilationEngine")}:</span>
                     <span className="text-indigo-300 font-bold">1D Kalman Filter</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Covariance Convergence:</span>
-                    <span className="text-emerald-400">STABLE (P=0.15)</span>
+                    <span>{t("covarianceConvergence")}:</span>
+                    <span className="text-emerald-400">{t("stable")} (P=0.15)</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Bias Calibration:</span>
-                    <span className="text-emerald-400">ACTIVE (Bias=-0.08)</span>
+                    <span>{t("biasCalibration")}:</span>
+                    <span className="text-emerald-400">{t("statusActive")} (Bias=-0.08)</span>
                   </div>
                 </div>
               </div>
@@ -3757,14 +3757,14 @@ export default function VayuSetuDashboard() {
           <section className="bg-slate-950/65 border border-slate-800/75 backdrop-blur-md rounded-xl p-3 sm:p-5 space-y-4 sm:space-y-6 shadow-[0_0_15px_rgba(59,130,246,0.05)]">
             {/* ISRO Data Feed Status */}
             <div>
-              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🛰️ ISRO Data Feed</h2>
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("isroDataFeed")}</h2>
               <div className="mt-3 space-y-1.5 text-[10px] font-mono">
                 {[
-                  { src: "INSAT-3D/3DR", type: "LST & OLR", status: "LIVE", color: "text-emerald-400" },
-                  { src: "MOSDAC API", type: "Rainfall Grid", status: "LIVE", color: "text-emerald-400" },
-                  { src: "IMD Station", type: "Surface Obs", status: "SYNCED", color: "text-indigo-400" },
-                  { src: "NavIC L5-S1", type: "Positioning", status: "ACTIVE", color: "text-emerald-400" },
-                  { src: "Bhoonidhi DEM", type: "Elevation", status: "CACHED", color: "text-amber-400" },
+                  { src: "INSAT-3D/3DR", type: "LST & OLR", status: "statusLive", color: "text-emerald-400" },
+                  { src: "MOSDAC API", type: "Rainfall Grid", status: "statusLive", color: "text-emerald-400" },
+                  { src: "IMD Station", type: "Surface Obs", status: "statusSynced", color: "text-indigo-400" },
+                  { src: "NavIC L5-S1", type: "Positioning", status: "statusActive", color: "text-emerald-400" },
+                  { src: "Bhoonidhi DEM", type: "Elevation", status: "statusCached", color: "text-amber-400" },
                 ].map((feed) => (
                   <div key={feed.src} className="flex items-center justify-between bg-slate-900/50 px-2 py-1 rounded border border-slate-900">
                     <div>
@@ -3773,7 +3773,7 @@ export default function VayuSetuDashboard() {
                     </div>
                     <span className={`text-[9px] font-bold ${feed.color} flex items-center gap-1`}>
                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                      {feed.status}
+                      {t(feed.status)}
                     </span>
                   </div>
                 ))}
@@ -3782,27 +3782,23 @@ export default function VayuSetuDashboard() {
 
             {/* National Twin Sync status */}
             <div className="pt-4 border-t border-slate-800/60">
-              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🌐 National Twin Sync</h2>
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">{t("nationalTwinSync")}</h2>
               <div className="mt-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 text-[10px] font-mono space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">District Node:</span>
-                  <span className="text-slate-200 font-sans font-semibold">{selectedDistrict}</span>
-                  <span className="text-emerald-400">● SYNCED</span>
+                  <span className="text-slate-500">{t("syncFrequency")}:</span>
+                  <span className="text-white font-sans">{t("syncFreqValue")}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">State Hub:</span>
-                  <span className="text-slate-200 font-sans font-semibold">{getDistrictInfo(selectedDistrict).zone || "State Node"}</span>
-                  <span className="text-emerald-400">● ACTIVE</span>
+                  <span className="text-slate-500">{t("gatewayNodes")}:</span>
+                  <span className="text-slate-200">SHAR & SAC</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Regional Gateway:</span>
-                  <span className="text-slate-200 font-sans font-semibold">{getRegionalGateway(selectedDistrict)}</span>
-                  <span className="text-emerald-400">● SYNCED</span>
+                  <span className="text-slate-500">{t("syncTargetState")}:</span>
+                  <span className="text-white font-sans">{t("syncTargetValue")}</span>
                 </div>
                 <div className="flex items-center justify-between font-bold border-t border-slate-900 pt-1.5">
-                  <span className="text-slate-400">National Twin:</span>
-                  <span className="text-white font-sans">Pan-India Hub</span>
-                  <span className="text-indigo-400">● ONLINE</span>
+                  <span className="text-slate-400">{t("syncEncryption")}:</span>
+                  <span className="text-indigo-400 font-sans">AES-GCM 256-bit</span>
                 </div>
               </div>
             </div>
@@ -3815,7 +3811,7 @@ export default function VayuSetuDashboard() {
                   <div>{t("zone")}: <span className="text-white font-sans font-semibold">{t(distInfo.zone)}</span></div>
                   <div>{t("soil")}: <span className="text-white font-sans font-semibold">{t(distInfo.soil)}</span></div>
                   <div className="col-span-2">{t("basin")}: <span className="text-white font-sans font-semibold">{t(distInfo.basin)}</span></div>
-                  <div className="col-span-2">{t("soilPerm")}: <span className="text-indigo-400 font-sans font-semibold">{distInfo.coeff > 0.5 ? "Low Infiltration (C=" + distInfo.coeff + ")" : "High Infiltration (C=" + distInfo.coeff + ")"}</span></div>
+                  <div className="col-span-2">{t("soilPerm")}: <span className="text-indigo-400 font-sans font-semibold">{distInfo.coeff > 0.5 ? t("lowInf") + " (C=" + distInfo.coeff + ")" : t("highInf") + " (C=" + distInfo.coeff + ")"}</span></div>
                 </div>
                 <div className="space-y-1.5 leading-relaxed text-slate-300">
                   <p>
