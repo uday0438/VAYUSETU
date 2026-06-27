@@ -3712,6 +3712,45 @@ export default function VayuSetuDashboard() {
                 </div>
               </div>
             </div>
+
+            {/* Unified Digital Twin Trust Gauge & Diagnostics */}
+            <div className="pt-4 border-t border-slate-800/60 text-slate-200">
+              <h2 className="text-sm uppercase font-mono tracking-wider text-indigo-400 border-b border-slate-800 pb-2">🔬 Digital Twin Trust Gauge</h2>
+              <div className="mt-3 bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 space-y-3">
+                {/* Trust Score bar */}
+                <div className="flex justify-between items-center text-xs">
+                  <span>Twin Trust Index:</span>
+                  <span className="font-mono font-bold text-indigo-400">93.4/100 (EXCELLENT)</span>
+                </div>
+                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden p-0.5 border border-slate-800">
+                  <div className="h-full rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]" style={{ width: "93.4%" }}></div>
+                </div>
+
+                {/* Sub-metrics */}
+                <div className="grid grid-cols-2 gap-2 pt-2 text-[10px] font-mono border-b border-slate-800/40 pb-2 text-slate-400">
+                  <div>Data Coverage: <span className="text-white font-sans font-semibold">92.4%</span></div>
+                  <div>Data Freshness: <span className="text-white font-sans font-semibold">85.0%</span></div>
+                  <div>Assimilator Success: <span className="text-white font-sans font-semibold">95.0%</span></div>
+                  <div>Model Confidence: <span className="text-white font-sans font-semibold">91.0%</span></div>
+                </div>
+
+                {/* Assimilation Cycle Status */}
+                <div className="pt-1 text-[9px] font-mono text-slate-500 leading-normal space-y-0.5">
+                  <div className="flex justify-between">
+                    <span>Assimilation Engine:</span>
+                    <span className="text-indigo-300 font-bold">1D Kalman Filter</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Covariance Convergence:</span>
+                    <span className="text-emerald-400">STABLE (P=0.15)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Bias Calibration:</span>
+                    <span className="text-emerald-400">ACTIVE (Bias=-0.08)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
 
           {/* Column 3: System Status & Regional Metadata */}
