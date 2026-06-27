@@ -1306,9 +1306,9 @@ export default function VayuSetuDashboard() {
     setMapReady(true);
 
     // Initial resize trigger to calculate viewport sizes correctly
-    setTimeout(() => {
-      if (mapInstance) {
-        mapInstance.invalidateSize();
+    const resizeTimer = setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
       }
     }, 200);
 
@@ -1321,6 +1321,7 @@ export default function VayuSetuDashboard() {
     window.addEventListener("resize", handleResize);
 
     return () => {
+      clearTimeout(resizeTimer);
       window.removeEventListener("resize", handleResize);
       if (mapRef.current) {
         mapRef.current.remove();
@@ -1357,11 +1358,12 @@ export default function VayuSetuDashboard() {
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     if (mapType !== "globe") {
-      setTimeout(() => {
+      const typeTimer = setTimeout(() => {
         if (mapRef.current) {
           mapRef.current.invalidateSize();
         }
       }, 150);
+      return () => clearTimeout(typeTimer);
     }
   }, [mapType, mapReady]);
 
